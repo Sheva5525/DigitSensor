@@ -10,6 +10,7 @@
       <TargetName>DigitSensor</TargetName>
       <ToolsetNumber>0x4</ToolsetNumber>
       <ToolsetName>ARM-ADS</ToolsetName>
+      <pArmCC>6190000::V6.19::ARMCLANG</pArmCC>
       <pCCUsed>6190000::V6.19::ARMCLANG</pCCUsed>
       <uAC6>1</uAC6>
       <TargetOption>
@@ -389,10 +390,22 @@
               <FileType>1</FileType>
               <FilePath>.\src\main.c</FilePath>
             </File>
+            <File>
+              <FileName>W25Q16JVSNIQ_driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\W25Q16JVSNIQ_driver.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>inc</GroupName>
+          <Files>
+            <File>
+              <FileName>W25Q16JVSNIQ_driver.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\W25Q16JVSNIQ_driver.h</FilePath>
+            </File>
+          </Files>
         </Group>
         <Group>
           <GroupName>FreeRTOS-src</GroupName>
