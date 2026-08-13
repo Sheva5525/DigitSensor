@@ -396,11 +396,6 @@
               <FilePath>.\src\main.c</FilePath>
             </File>
             <File>
-              <FileName>uart1.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\uart1.c</FilePath>
-            </File>
-            <File>
               <FileName>W25Q16JVSNIQ_driver.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\W25Q16JVSNIQ_driver.c</FilePath>
@@ -419,11 +414,6 @@
               <FileName>DataBase.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\inc\DataBase.h</FilePath>
-            </File>
-            <File>
-              <FileName>uart1.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>.\inc\uart1.h</FilePath>
             </File>
             <File>
               <FileName>W25Q16JVSNIQ_driver.h</FileName>
