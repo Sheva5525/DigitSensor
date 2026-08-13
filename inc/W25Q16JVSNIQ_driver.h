@@ -34,4 +34,12 @@ void W25Q16_Erase_Sector(uint32_t address);
 void W25Q16_Write_Page(uint32_t address, uint8_t *pData, uint16_t size);
 void W25Q16_Read_Data(uint32_t address, uint8_t *pBuffer, uint32_t size);
 
+#define VARS_TOTAL_SIZE         (128 * 1024) // 131072 байт
+#define VARS_START_ADDR         (W25Q16_BLOCK_SIZE * 30) // 0x1E0000 (Блоки 30 и 31)
+#define VARS_SLOT_SIZE          W25Q16_SECTOR_SIZE       // 4096 байт на один слот
+#define VARS_MAX_SLOTS          32           // Всего 32 слота (от 0 до 31)
+
+void W25Q16_Write_VarSlot(uint8_t slot_num, uint8_t *pData, uint16_t size);
+void W25Q16_Read_VarSlot(uint8_t slot_num, uint8_t *pBuffer, uint16_t size);
+
 #endif // W25Q16JVSNIQ_DRIVER_H
