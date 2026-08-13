@@ -1,150 +1,185 @@
 #include "stm32f4xx.h"
 #include "FreeRTOS.h"
 #include "task.h"
-#include "W25Q16JVSNIQ_driver.h"
-#include "uart1.h"
-#include "DataBase.h"  // Подключаем нашу БД
-#include <stdio.h>     // Для sprintf (чтобы форматировать вывод в UART)
+#include "queue.h"
+#include "xmodem.h"   // Здесь должны быть объявлены SimpleReceiveFile, SendCharacter, ACK, NAK
+#include <string.h>
 
-void hardware_init(void);
-void SystemClock_Config_100MHz(void);
+// ================== Очередь UART ==================
+QueueHandle_t xUartQueue;
 
-// Вспомогательная функция для красивого вывода всей БД в терминал PuTTY
-void DB_DumpToUART(void) {
-    char buf[128];
-    UART1_SendBuf((uint8_t*)"\r\n--- CURRENT RAM DATABASE DUMP ---\r\n", 37);
-    UART1_SendBuf((uint8_t*)"Slot | Key | Value    | Type | Read | Flash\r\n", 45);
-    UART1_SendBuf((uint8_t*)"--------------------------------------------\r\n", 46);
+// ================== Буфер для принятого файла ==================
+#define MAX_FILE_SIZE   16384   // 16 КБ
+uint8_t receivedData[MAX_FILE_SIZE];
+uint32_t receivedLength = 0;
 
-    // Вручную пройдемся по массиву для отладки (в реальном приложении лучше делать через API)
-    // Предположим, что массив _db_storage доступен или мы временно тестируем здесь.
-    // Чтобы не нарушать инкапсуляцию, мы просто по очереди вызовем DB_Select для ключей 0..5
-    for (uint8_t k = 0; k <= 5; k++) {
-        DB_Value_t val;
-        if (DB_Select(k, &val)) {
-            int len = sprintf(buf, "     |  %d  | %-8d |  %d   |  OK  |  %s\r\n", 
-                              k, val.raw_data, val.type, val.save_to_flash ? "YES" : "NO");
-            UART1_SendBuf((uint8_t*)buf, len);
-        } else {
-            // Если не читается, проверим, может ключ просто заблокирован для чтения (is_readable == false)
-            // Для этого теста выведем, что слот пуст или скрыт
-            int len = sprintf(buf, "     |  %d  | [Empty or Read-Protected]\r\n", k);
-            UART1_SendBuf((uint8_t*)buf, len);
+// ================== Задача мигания светодиодом ==================
+void vLedFlashTask(void *pvParameters)
+{
+    (void)pvParameters;
+    while (1) {
+        GPIOC->ODR ^= (1UL << 13);   // Инверсия PC13
+        vTaskDelay(pdMS_TO_TICKS(500));
+    }
+}
+
+// ================== Задача приёма файла ==================
+void vReceiveTask(void *pvParameters)
+{
+    (void)pvParameters;
+    // Даем время на стабилизацию UART и запуск системы
+    vTaskDelay(pdMS_TO_TICKS(1000));  
+
+    // Мигнём 2 раза, показывая готовность к приему
+    for (int i = 0; i < 4; i++) {
+        GPIOC->ODR ^= (1UL << 13);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+
+    // Вызываем ваш кастомный приём: сначала длина (4 байта), затем данные
+    // Таймаут ожидания каждого байта увеличен до 5000 мс
+    receivedLength = SimpleReceiveFile(receivedData, MAX_FILE_SIZE, 5000);
+
+    if (receivedLength > 0) {
+        // УСПЕХ: 5 быстрых миганий
+        for (int i = 0; i < 10; i++) {
+            GPIOC->ODR ^= (1UL << 13);
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+    } else {
+        // ОШИБКА: 3 медленных мигания
+        for (int i = 0; i < 6; i++) {
+            GPIOC->ODR ^= (1UL << 13);
+            vTaskDelay(pdMS_TO_TICKS(300));
         }
     }
-    UART1_SendBuf((uint8_t*)"--------------------------------------------\r\n\r\n", 48);
-}
 
-void vLedFlashTask(void *pvParameters) {
-    (void)pvParameters;
-    
-    // 1. Сначала инициализируем пустую структуру БД в ОЗУ и мьютекс
-    DB_Init();
-
-    // 2. Считываем данные из чипа W25Q16 и восстанавливаем таблицу
-    DB_LoadFromFlash();
-
-    // Теперь база готова. Все сохраненные до ресета ключи уже находятся в ОЗУ!
-    
+    // Засыпаем после завершения сессии передачи
     while (1) {
-        GPIOC->ODR ^= (1UL << 13);
-        vTaskDelay(pdMS_TO_TICKS(500)); 
+        vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
-
-int main(void) {
-    hardware_init(); // Тут настраивается SPI, UART и GPIO
-    
-    // Создаем задачу тестирования БД
-    xTaskCreate(vLedFlashTask, "DB_Test_Task", 256, NULL, 1, NULL);
-    
-    vTaskStartScheduler();
-    while (1);
-    return 0;
-}
-
-// Конфигурация тактовой частоты на 100 МГц от HSE (25 МГц)
-void SystemClock_Config_100MHz(void) {
+// ================== Инициализация тактирования 100 МГц ==================
+void SystemClock_Config_100MHz(void)
+{
+    // Включаем внешний кварц (HSE)
     RCC->CR |= RCC_CR_HSEON;
     while (!(RCC->CR & RCC_CR_HSERDY));
 
+    // Настройка Flash Latency для работы на частоте 100 МГц
     FLASH->ACR = FLASH_ACR_ICEN | FLASH_ACR_DCEN | FLASH_ACR_LATENCY_3WS;
 
-    RCC->PLLCFGR = (25UL << RCC_PLLCFGR_PLLM_Pos) | 
-                   (400UL << RCC_PLLCFGR_PLLN_Pos) | 
-                   (1UL << RCC_PLLCFGR_PLLP_Pos) |   
+    // Конфигурация PLL (предполагается кварц 25 МГц)
+    RCC->PLLCFGR = (25UL << RCC_PLLCFGR_PLLM_Pos) |
+                   (400UL << RCC_PLLCFGR_PLLN_Pos) |
+                   (1UL << RCC_PLLCFGR_PLLP_Pos) |
                    RCC_PLLCFGR_PLLSRC_HSE;
 
+    // Включаем PLL
     RCC->CR |= RCC_CR_PLLON;
     while (!(RCC->CR & RCC_CR_PLLRDY));
 
-    RCC->CFGR |= RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV2 | RCC_CFGR_PPRE2_DIV1;
+    // ИСПРАВЛЕНО: Устанавливаем безопасные делители для шин периферии
+    // AHB = 100 МГц (DIV1), APB1 = 50 МГц (DIV2), APB2 = 50 МГц (DIV2)
+    RCC->CFGR |= RCC_CFGR_HPRE_DIV1 | RCC_CFGR_PPRE1_DIV2 | RCC_CFGR_PPRE2_DIV2;
 
+    // Переключаем системное тактирование на PLL
     RCC->CFGR |= RCC_CFGR_SW_PLL;
     while ((RCC->CFGR & RCC_CFGR_SWS) != RCC_CFGR_SWS_PLL);
 }
 
-void hardware_init(void) {
+// ================== Инициализация периферии ==================
+void hardware_init(void)
+{
     SystemClock_Config_100MHz();
 
-    RCC->AHB1ENR |= (RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN | RCC_AHB1ENR_GPIOCEN);
-    RCC->APB2ENR |= (RCC_APB2ENR_SPI1EN | RCC_APB2ENR_USART1EN);
+    // Включаем тактирование портов GPIOA, GPIOC и модуля USART1
+    RCC->AHB1ENR |= (RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOCEN);
+    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 
-    // Светодиод Black Pill (PC13)
+    // Настройка светодиода на PC13 (Выход)
     GPIOC->MODER &= ~(3UL << (13 * 2));
     GPIOC->MODER |=  (1UL << (13 * 2));
-    GPIOC->BSRR   =  (1UL << 13);
+    GPIOC->BSRR   =  (1UL << 13);   // Выключить LED (высокий уровень для платы Black Pill)
 
-    // Настройка CS флешки (PA4)
-    GPIOA->MODER &= ~(3UL << (4 * 2));
-    GPIOA->MODER |=  (1UL << (4 * 2));
-    W25Q16_CS_HIGH();
-
-    // Настройка линий SPI1 (PA5, PA6, PA7)
-    GPIOA->MODER &= ~((3UL << (5 * 2)) | (3UL << (6 * 2)) | (3UL << (7 * 2)));
-    GPIOA->MODER |=  ((2UL << (5 * 2)) | (2UL << (6 * 2)) | (2UL << (7 * 2)));
-    GPIOA->OSPEEDR |= ((2UL << (5 * 2)) | (2UL << (6 * 2)) | (2UL << (7 * 2)));
-    
-    // Внутренняя подтяжка Pull-up для стабильной работы MISO (PA6)
-    GPIOA->PUPDR &= ~((3UL << (5 * 2)) | (3UL << (6 * 2)) | (3UL << (7 * 2)));
-    GPIOA->PUPDR |=  (1UL << (6 * 2)); 
-    
-    // Исправлено: Работаем с массивом AFR[0] для пинов < 8
-    GPIOA->AFR[0] &= ~((0xFUL << (5 * 4)) | (0xFUL << (6 * 4)) | (0xFUL << (7 * 4)));
-    GPIOA->AFR[0] |=  ((5UL << (5 * 4)) | (5UL << (6 * 4)) | (5UL << (7 * 4)));
-
-    // Настройка линий UART1 (PA9, PA10)
+    // Настройка выводов UART1: PA9 (TX), PA10 (RX) в альтернативный режим
     GPIOA->MODER &= ~((3UL << (9 * 2)) | (3UL << (10 * 2)));
-    GPIOA->MODER |=  ((2UL << (9 * 2)) | (2UL << (10 * 2))); 
-    GPIOA->OSPEEDR |= ((3UL << (9 * 2)) | (3UL << (10 * 2))); 
-    
-    // Внутренняя подтяжка Pull-up для стабильности линии RX (PA10)
-    GPIOA->PUPDR &= ~((3UL << (9 * 2)) | (3UL << (10 * 2)));  
+    GPIOA->MODER |=  ((2UL << (9 * 2)) | (2UL << (10 * 2)));  // Alternate Function
+    GPIOA->OSPEEDR |= ((3UL << (9 * 2)) | (3UL << (10 * 2))); // High speed
+
+    // Включаем Pull-up резистор на линию приема RX (PA10)
+    GPIOA->PUPDR &= ~((3UL << (9 * 2)) | (3UL << (10 * 2)));
     GPIOA->PUPDR |=  (1UL << (10 * 2));
 
-    // Исправлено: Работаем с массивом AFR[1] для пинов >= 8
+    // Привязываем AF7 (USART1) к пинам PA9 и PA10
     GPIOA->AFR[1] &= ~((0xFUL << ((9 - 8) * 4)) | (0xFUL << ((10 - 8) * 4)));
-    GPIOA->AFR[1] |=  ((7UL << ((9 - 8) * 4)) | (7UL << ((10 - 8) * 4))); 
+    GPIOA->AFR[1] |=  ((7UL << ((9 - 8) * 4)) | (7UL << ((10 - 8) * 4)));
 
-    // Аппаратная инициализация модуля SPI1 (Master mode)
-    SPI1->CR1 = 0; 
-    SPI1->CR1 |= (SPI_CR1_MSTR | SPI_CR1_SSI | SPI_CR1_SSM); 
-    SPI1->CR1 |= (4UL << SPI_CR1_BR_Pos); // Делитель /32 для стабильности
-    SPI1->CR1 |= SPI_CR1_SPE;             
-
-    // Аппаратный сброс CS в исходное высокое состояние и короткая пауза
-    W25Q16_CS_HIGH();
-    for(volatile int i = 0; i < 50000; i++);
-
-    // Настройка UART1 на 115200 при частоте шины 100 МГц
+    // Сброс конфигурации USART1
     USART1->CR1 = 0;
+    
+    // ИСПРАВЛЕНО: Расчет регистра BRR исходя из реальной частоты APB2 = 50 МГц
     uint32_t baudrate = 115200;
-    uint32_t pclk2 = 100000000; 
+    uint32_t pclk2 = 50000000;   // APB2 строго 50 МГц
 
     uint32_t div_mantissa = pclk2 / (16 * baudrate);
     uint32_t div_fraction = ((pclk2 % (16 * baudrate)) * 16 + (8 * baudrate)) / (16 * baudrate);
     USART1->BRR = (div_mantissa << 4) | (div_fraction & 0x0F);
 
-    USART1->CR1 |= (USART_CR1_TE | USART_CR1_RE | USART_CR1_UE);
+    // Разрешаем работу передатчика (TE), приемника (RE) и прерывания по приему (RXNEIE)
+    USART1->CR1 |= (USART_CR1_TE | USART_CR1_RE | USART_CR1_RXNEIE | USART_CR1_UE);
+    
+    // Настройка NVIC для прерываний USART1
+    NVIC_SetPriority(USART1_IRQn, 5); // Безопасный приоритет для FreeRTOS (>= configMAX_SYSCALL_INTERRUPT_PRIORITY)   
+    NVIC_EnableIRQ(USART1_IRQn);
+}
+
+// ================== Обработчик прерывания USART1 ==================
+void USART1_IRQHandler(void)
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+    uint32_t sr = USART1->SR; // Читаем регистр статуса один раз
+
+    // Проверяем, пришли ли данные в приемный регистр (RXNE)
+    if (sr & USART_SR_RXNE) {
+        uint8_t byte = (uint8_t)USART1->DR;
+        // Передаем байт в очередь FreeRTOS
+        xQueueSendFromISR(xUartQueue, &byte, &xHigherPriorityTaskWoken);
+    }
+
+    // ИСПРАВЛЕНО: Сброс флагов аппаратных ошибок (Overrun, Noise, Frame Error)
+    // Без этого сброса при любой помехе в линии прерывание зависнет в бесконечном вызове
+    if (sr & (USART_SR_ORE | USART_SR_NE | USART_SR_FE)) {
+        volatile uint32_t dummy = USART1->DR; // Чтение регистра данных очищает флаги ошибок
+        (void)dummy;
+    }
+
+    // Форсируем переключение контекста, если задача приема имеет высокий приоритет
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+// ================== Точка входа ==================
+int main(void)
+{
+    // ИСПРАВЛЕНО: Сначала создаём очередь, чтобы избежать падения в HardFault 
+    // при случайном срабатывании прерывания UART до старта планировщика
+    xUartQueue = xQueueCreate(512, sizeof(uint8_t));
+    if (xUartQueue == NULL) {
+        while (1); // Ошибка выделения памяти под очередь
+    }
+
+    // Теперь безопасно инициализировать тактирование и периферию
+    hardware_init();
+
+    // Создаём задачи операционной системы
+    xTaskCreate(vLedFlashTask, "LED", 256, NULL, 1, NULL);
+    xTaskCreate(vReceiveTask, "Receive", 1024, NULL, 1, NULL);
+
+    // Запуск планировщика FreeRTOS
+    vTaskStartScheduler();
+
+    // Сюда программа дойти не должна
+    while (1);
+    return 0;
 }

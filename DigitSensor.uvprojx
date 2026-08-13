@@ -405,11 +405,21 @@
               <FileType>1</FileType>
               <FilePath>.\src\W25Q16JVSNIQ_driver.c</FilePath>
             </File>
+            <File>
+              <FileName>xmodem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\xmodem.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>inc</GroupName>
           <Files>
+            <File>
+              <FileName>DataBase.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\DataBase.h</FilePath>
+            </File>
             <File>
               <FileName>uart1.h</FileName>
               <FileType>5</FileType>
@@ -421,9 +431,9 @@
               <FilePath>.\inc\W25Q16JVSNIQ_driver.h</FilePath>
             </File>
             <File>
-              <FileName>DataBase.h</FileName>
+              <FileName>xmodem.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\inc\DataBase.h</FilePath>
+              <FilePath>.\inc\xmodem.h</FilePath>
             </File>
           </Files>
         </Group>
