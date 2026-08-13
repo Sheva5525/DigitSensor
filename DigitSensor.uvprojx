@@ -386,9 +386,19 @@
           <GroupName>src</GroupName>
           <Files>
             <File>
+              <FileName>DataBase.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\DataBase.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\main.c</FilePath>
+            </File>
+            <File>
+              <FileName>uart1.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\uart1.c</FilePath>
             </File>
             <File>
               <FileName>W25Q16JVSNIQ_driver.c</FileName>
@@ -401,9 +411,19 @@
           <GroupName>inc</GroupName>
           <Files>
             <File>
+              <FileName>uart1.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\uart1.h</FilePath>
+            </File>
+            <File>
               <FileName>W25Q16JVSNIQ_driver.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\inc\W25Q16JVSNIQ_driver.h</FilePath>
+            </File>
+            <File>
+              <FileName>DataBase.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\DataBase.h</FilePath>
             </File>
           </Files>
         </Group>
