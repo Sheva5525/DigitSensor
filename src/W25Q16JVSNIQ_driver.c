@@ -78,7 +78,8 @@ void W25Q16_Read_Data(uint32_t address, uint8_t *pBuffer, uint32_t size)
     W25Q16_SPI_Transfer((address >> 16) & 0xFF);
     W25Q16_SPI_Transfer((address >> 8) & 0xFF);
     W25Q16_SPI_Transfer(address & 0xFF);
-    for (uint32_t i = 0; i < size; i++) {
+    for (uint32_t i = 0; i < size; i++)
+    {
         pBuffer[i] = W25Q16_SPI_Transfer(0x00);
     }
     W25Q16_CS_HIGH();
@@ -93,9 +94,11 @@ void W25Q16_Write_VarSlot(uint8_t slot_num, uint8_t *pData, uint16_t size)
     W25Q16_Erase_Sector(sector_addr);
 
     uint16_t bytes_written = 0;
-    while (bytes_written < size) {
+    while (bytes_written < size)
+    {
         uint16_t chunk_size = size - bytes_written;
-        if (chunk_size > W25Q16_PAGE_SIZE) {
+        if (chunk_size > W25Q16_PAGE_SIZE)
+        {
             chunk_size = W25Q16_PAGE_SIZE;
         }
         W25Q16_Write_Page(sector_addr + bytes_written, &pData[bytes_written], chunk_size);

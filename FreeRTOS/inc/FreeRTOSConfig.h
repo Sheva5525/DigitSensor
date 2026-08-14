@@ -4,18 +4,18 @@
 #define configUSE_PREEMPTION                    1
 #define configUSE_IDLE_HOOK                     0
 #define configUSE_TICK_HOOK                     0
-#define configCPU_CLOCK_HZ                      (16000000UL) // По умолчанию HSI = 16 МГц
+#define configCPU_CLOCK_HZ                      (100000000UL)
 #define configTICK_RATE_HZ                      ((TickType_t)1000) // Квант времени 1 мс
 #define configMAX_PRIORITIES                    (5)
 #define configMINIMAL_STACK_SIZE                ((unsigned short)130)
-#define configTOTAL_HEAP_SIZE                   ((size_t)(10 * 1024)) // 10 КБ под кучу
+#define configTOTAL_HEAP_SIZE                   ((size_t)(10 * 1024)) // 10 КБ
 #define configMAX_TASK_NAME_LEN                 (16)
 #define configUSE_16_BIT_TICKS                  0
 
 #define INCLUDE_vTaskDelay                      1
+#define configSUPPORT_DYNAMIC_ALLOCATION        1
+#define INCLUDE_vTaskDelete                1
 
-/* ---- НАСТРОЙКА ПРИОРТЕТОВ ПРЕРЫВАНИЙ ДЛЯ CORTEX-M4 ---- */
-/* В STM32 под приоритеты выделено 4 бита конфигурации */
 #define configPRIO_BITS                         4
 
 /* Минимальный приоритет прерываний (для Системного Таймера FreeRTOS) */
