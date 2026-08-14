@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define></Define>
               <Undefine></Undefine>
-              <IncludePath>.\inc;.\FreeRTOS\inc</IncludePath>
+              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -404,6 +404,11 @@
               <FileName>xmodem.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\xmodem.c</FilePath>
+            </File>
+            <File>
+              <FileName>iFS.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\iFS.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -579,6 +584,36 @@
               <FileName>timers.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\FreeRTOS\inc\timers.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>LittleFS-src</GroupName>
+          <Files>
+            <File>
+              <FileName>lfs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\LittleFS\src\lfs.c</FilePath>
+            </File>
+            <File>
+              <FileName>lfs_util.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\LittleFS\src\lfs_util.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>LittleFS-inc</GroupName>
+          <Files>
+            <File>
+              <FileName>lfs_util.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\LittleFS\inc\lfs_util.h</FilePath>
+            </File>
+            <File>
+              <FileName>lfs.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\LittleFS\inc\lfs.h</FilePath>
             </File>
           </Files>
         </Group>
