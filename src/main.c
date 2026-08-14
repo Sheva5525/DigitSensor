@@ -17,10 +17,6 @@ TaskHandle_t xPawnTaskHandle = NULL;
 #define PAWN_MEMORY_SIZE_BYTES  (1 * 1024) 
 __attribute__((aligned(4))) uint8_t amx_run_memory[PAWN_MEMORY_SIZE_BYTES];
 
-
-
-// --- Задачи FreeRTOS ---
-
 void vLedFlashTask(void *pvParameters)
 {
     (void)pvParameters;
@@ -62,21 +58,38 @@ void vReceiveTask(void *pvParameters) {
 cell AMXAPI native_SetLedState(AMX *amx, const cell *params)
 {
     (void)amx;
-    
-    // В Pawn 4.x первый аргумент SetLedState(state) гарантированно лежит в params[1]
-    int state = (int)params[1]; 
+
+    // Разыменовываем указатель, чтобы получить 0 или 1
+    cell *arg_ptr = (cell *)params[1];
+    int state = (int)(*arg_ptr); 
     
     if (state == 1) {
-        GPIOC->BSRR = (1UL << (13 + 16)); // Зажечь LED (низкий уровень Black Pill)
+        GPIOC->BSRR = (1UL << (13 + 16)); // Зажечь LED
     } else {
         GPIOC->BSRR = (1UL << 13);        // Погасить LED
     }
-    return 0; 
+    return 0;
+}
+
+cell AMXAPI native_Delay(AMX *amx, const cell *params)
+{
+    (void)amx;
+    
+    // Разыменовываем указатель, чтобы получить честные 500 мс
+    cell *arg_ptr = (cell *)params[1];
+    uint32_t ms = (uint32_t)(*arg_ptr); 
+    
+    if (ms > 0) {
+        vTaskDelay(pdMS_TO_TICKS(ms));
+    }
+
+    return 0;
 }
 
 // Таблица сопоставления текстовых имен из скрипта с функциями Си
 const AMX_NATIVE_INFO stm32_natives[] = {
     { "SetLedState", native_SetLedState },
+    { "Delay", native_Delay },
     { NULL,          NULL } // Маркер конца таблицы
 };
 
