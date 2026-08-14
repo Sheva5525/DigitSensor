@@ -1,13 +1,20 @@
 #ifndef DATABASE_H
 #define DATABASE_H
 
-#include <stdint.h>
-#include <stdbool.h>
 #include "FreeRTOS.h"
 #include "task.h"
 #include "semphr.h"
+#include <stdint.h>
+#include <string.h>
+#include <stdbool.h>
 
 #define DB_MAX_ROWS 50    // Размер N вашего массива
+
+#define FILE_START_ADDR     0x100000UL      // 1 МБ, кратно 4 КБ
+#define FILE_HEADER_SIZE    256             // заголовок (256 байт)
+#define FILE_DATA_OFFSET    (FILE_START_ADDR + FILE_HEADER_SIZE)
+#define FILE_MAX_SIZE       16384UL         // максимальный размер данных (16 КБ)
+#define FLASH_SECTOR_SIZE   4096UL          // размер сектора для стирания
 
 typedef enum {
     TYPE_RAW_INT = 0,
@@ -37,5 +44,8 @@ bool DB_Insert(uint8_t key, DB_Value_t val);
 bool DB_Select(uint8_t key, DB_Value_t *out_val);
 bool DB_Delete(uint8_t key);
 void DB_LoadFromFlash(void); // Загрузка сохраненных ключей при старте
+
+bool DB_StoreFile(const uint8_t *data, uint32_t length);
+bool DB_ReadFile(uint8_t *buffer, uint32_t max_length, uint32_t *out_length);
 
 #endif // DATABASE_H
