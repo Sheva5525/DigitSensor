@@ -410,6 +410,11 @@
               <FileType>1</FileType>
               <FilePath>.\src\iFS.c</FilePath>
             </File>
+            <File>
+              <FileName>hardware.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\hardware.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -419,6 +424,11 @@
               <FileName>DataBase.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\inc\DataBase.h</FilePath>
+            </File>
+            <File>
+              <FileName>hardware.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\hardware.h</FilePath>
             </File>
             <File>
               <FileName>W25Q16JVSNIQ_driver.h</FileName>
