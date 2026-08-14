@@ -339,9 +339,9 @@
             <v6Rtti>0</v6Rtti>
             <VariousControls>
               <MiscControls></MiscControls>
-              <Define></Define>
+              <Define>AMX_ANSIONLY</Define>
               <Undefine></Undefine>
-              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc</IncludePath>
+              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc;.\Pawn</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -624,6 +624,26 @@
               <FileName>lfs.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\LittleFS\inc\lfs.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Pawn</GroupName>
+          <Files>
+            <File>
+              <FileName>amx.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Pawn\amx.c</FilePath>
+            </File>
+            <File>
+              <FileName>amx.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Pawn\amx.h</FilePath>
+            </File>
+            <File>
+              <FileName>amxcore.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Pawn\amxcore.c</FilePath>
             </File>
           </Files>
         </Group>

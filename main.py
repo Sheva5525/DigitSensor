@@ -73,4 +73,4 @@ def send_file_with_handshake(port, baudrate, file_path):
 
 
 if __name__ == "__main__":
-    send_file_with_handshake("COM5", 115200, "hello.txt")
+    send_file_with_handshake("COM5", 115200, "script.amx")
