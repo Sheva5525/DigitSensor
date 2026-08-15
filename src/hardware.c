@@ -142,6 +142,82 @@ void Button_Init(void) {
     GPIOA->PUPDR |=  (1UL << (0 * 2));   // Pull-up
 }
 
+void Encoder_Init(void) 
+{
+    // 1. Включаем тактирование порта GPIOB, таймера TIM4 и системного конфигуратора SYSCFG
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOBEN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM4EN;
+    RCC->APB2ENR |= RCC_APB2ENR_SYSCFGEN;
+
+    // 2. Настройка PB6 (S1) и PB7 (S2) под альтернативную функцию TIM4
+    GPIOB->MODER &= ~((3UL << (6 * 2)) | (3UL << (7 * 2)));
+    GPIOB->MODER |=  ((2UL << (6 * 2)) | (2UL << (7 * 2))); // Режим AF
+
+    // Настройка альтернативной функции AF2 (TIM4) для PB6 и PB7
+    GPIOB->AFR[0] &= ~((0xFUL << (6 * 4)) | (0xFUL << (7 * 4)));
+    GPIOB->AFR[0] |=  ((2UL << (6 * 4)) | (2UL << (7 * 4))); // AF2
+
+    // Включаем подтяжку (Pull-up) к 3.3В для стабильной работы открытых коллекторов энкодера
+    GPIOB->PUPDR &= ~((3UL << (6 * 2)) | (3UL << (7 * 2)));
+    GPIOB->PUPDR |=  ((1UL << (6 * 2)) | (1UL << (7 * 2))); // Pull-up
+
+    // 3. Настройка Кнопки KEY на пин PB1 (Вход + Pull-up)
+    GPIOB->MODER &= ~(3UL << (1 * 2)); // Input mode
+    GPIOB->PUPDR &= ~(3UL << (1 * 2));
+    GPIOB->PUPDR |=  (1UL << (1 * 2)); // Pull-up
+
+    // 4. Настройка прерывания EXTI1 для порта GPIOB (Пин PB1)
+    SYSCFG->EXTICR[0] &= ~SYSCFG_EXTICR1_EXTI1;
+    SYSCFG->EXTICR[0] |=  SYSCFG_EXTICR1_EXTI1_PB; // Назначаем линию EXTI1 на порт B
+    
+    EXTI->IMR  |= EXTI_IMR_IM1;   // Разрешаем прерывание EXTI1
+    EXTI->FTSR |= EXTI_FTSR_TR1;  // Триггер по спаду (Falling edge - нажатие кнопки)
+
+    // Приоритет прерывания 5 (такой же, как у вашего UART1, безопасный для FreeRTOS)
+    NVIC_SetPriority(EXTI1_IRQn, 5);
+    NVIC_EnableIRQ(EXTI1_IRQn);
+
+    // 5. Конфигурация TIM4 в режим Encoder 1 (Счет только по каналу TI1)
+    TIM4->CCMR1 &= ~(TIM_CCMR1_CC1S | TIM_CCMR1_CC2S);
+    TIM4->CCMR1 |=  (TIM_CCMR1_CC1S_0 | TIM_CCMR1_CC2S_0); // CC1->TI1, CC2->TI2
+
+    // Оставляем глубокие цифровые фильтры
+    TIM4->CCMR1 &= ~((0xFUL << TIM_CCMR1_IC1F_Pos) | (0xFUL << TIM_CCMR1_IC2F_Pos));
+    TIM4->CCMR1 |=  (0x0DUL << TIM_CCMR1_IC1F_Pos) | (0x0DUL << TIM_CCMR1_IC2F_Pos);
+
+    TIM4->CR1 &= ~TIM_CR1_CKD;
+    TIM4->CR1 |= TIM_CR1_CKD_1; // Делитель DTS = 4
+
+    // --- ВОТ ЭТОТ БЛОК МЕНЯЕМ ---
+    TIM4->SMCR &= ~TIM_SMCR_SMS; 
+    TIM4->SMCR |= TIM_SMCR_SMS_0; // Записываем 0x01: Encoder mode 1 (счет по TI1, TI2 задает направление)
+    // ----------------------------
+
+    TIM4->ARR   = 0xFFFF; 
+    TIM4->CNT   = 0;
+    TIM4->CR1  |= TIM_CR1_CEN; // Включаем таймер
+}
+
+extern TaskHandle_t xEncoderButtonTaskHandle;
+
+void EXTI1_IRQHandler(void)
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    // Проверяем, что прерывание случилось именно по линии EXTI1
+    if (EXTI->PR & EXTI_PR_PR1) {
+        EXTI->PR = EXTI_PR_PR1; // Сбрасываем флаг прерывания записью единицы
+
+        if (xEncoderButtonTaskHandle != NULL) {
+            // Разбудить задачу обработки кнопки
+            vTaskNotifyGiveFromISR(xEncoderButtonTaskHandle, &xHigherPriorityTaskWoken);
+        }
+    }
+
+    // Переключаем контекст, если разбуженная задача имеет более высокий приоритет
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
 // =====================================================================
 //  System_Init
 //  Вызывает все инициализации периферии в правильном порядке:
@@ -153,6 +229,7 @@ void hardware_init(void)
     LED_Init();
     UART1_Init();
     Button_Init();
+    Encoder_Init();
     SPI1_Init();
 }
 
