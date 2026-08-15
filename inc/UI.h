@@ -34,7 +34,7 @@ typedef struct MenuItem {
     union {
         struct Menu *next_menu; // Для ITEM_SUBMENU
         struct {
-            int32_t *val_ptr;   // Указатель на переменную
+            uint16_t db_index;
             int32_t min;
             int32_t max;
             int32_t step;

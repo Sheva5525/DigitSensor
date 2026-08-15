@@ -1,4 +1,5 @@
 #include "UI.h"
+#include "DataBase.h"
 #include <stdio.h>
 // Реальные переменные для параметров меню (в будущем они могут уйти в DB.c)
 static int32_t param_brightness = 50;
@@ -9,11 +10,15 @@ extern int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8
 static Menu_t main_menu;
 static Menu_t settings_menu;
 
+#define IDX_0 0
+#define IDX_1 1
+#define IDX_2 2
+
 // --- 1. ПУНКТЫ И СТРУКТУРА МЕНЮ НАСТРОЕК (ВЛОЖЕННОЕ) ---
 static MenuItem_t settings_items[MENU_SIZE] = {
     { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
-    { .name = "Brightness",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { &param_brightness, 0, 100, 5 } },
-    { .name = "Contrast",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { &param_contrast, 10, 100, 2 } },
+    { .name = "Brightness",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_0, 0, 100, 5 } },
+    { .name = "Contrast",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 10, 100, 2 } },
     { .name = "Reset All",    .type = ITEM_PARAM_INT, .is_enabled = false } // Заблокирован
 };
 
@@ -26,7 +31,7 @@ static Menu_t settings_menu = {
 // --- 2. ПУНКТЫ И СТРУКТУРА ГЛАВНОГО МЕНЮ (КОРНЕВОГО) ---
 static MenuItem_t main_menu_items[MENU_SIZE] = {
     { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
-    { .name = "Volume Ctrl",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { &param_volume, 0, 30, 1 } },
+    { .name = "Volume Ctrl",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 30, 1 } },
     { .name = "LittleFS Files",.type = ITEM_CUSTOM_PAGE,.is_enabled = false, .load.custom_init_cb = NULL }, // Пока выключен
     { .name = "Device Info",   .type = ITEM_PARAM_INT, .is_enabled = false } // Заблокирован
 };
@@ -97,15 +102,18 @@ void UI_ProcessNavigate(int8_t direction) {
         }
     } 
     else if (ui.mode == UI_MODE_EDIT) {
-        // Режим изменения параметра в белом окошке
         MenuItem_t *item = &ui.current_menu->items[ui.cursor];
-        int32_t val = *(item->load.int_param.val_ptr);
-        val += direction * item->load.int_param.step;
         
-        if (val < item->load.int_param.min) val = item->load.int_param.min;
-        if (val > item->load.int_param.max) val = item->load.int_param.max;
+        DB_Value_t value;
+        DB_Select(item->load.int_param.db_index, &value);
+
+        value.raw_data += direction * item->load.int_param.step;
         
-        *(item->load.int_param.val_ptr) = val;
+        if (value.raw_data < item->load.int_param.min) value.raw_data = item->load.int_param.min;
+        if (value.raw_data > item->load.int_param.max) value.raw_data = item->load.int_param.max;
+        
+        // Пишет строго в ОЗУ, флаг save_to_flash не портится
+        DB_Insert(item->load.int_param.db_index, value); 
     }
 }
 
@@ -183,10 +191,13 @@ void vGuiTask(void *pvParameters)
         if (!need_redraw) {
             for (uint8_t i = 0; i < ui.current_menu->size; i++) {
                 if (ui.current_menu->items[i].type == ITEM_PARAM_INT) {
-                    int32_t current_val = *(ui.current_menu->items[i].load.int_param.val_ptr);
-                    if (current_val != last_param_values[i]) {
+                
+                    DB_Value_t value;
+                    DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value);
+
+                    if (value.raw_data != last_param_values[i]) {
                         need_redraw = true;
-                        last_param_values[i] = current_val;
+                        last_param_values[i] = value.raw_data;
                     }
                 }
             }
@@ -239,8 +250,12 @@ void vGuiTask(void *pvParameters)
                     ucg_DrawString(&ucg, 16, row_y, 0, item.name);
 
                     // --- ШАГ 3: ОТРИСОВКА ЗНАЧЕНИЯ СПРАВА ---
-                    if (item.type == ITEM_PARAM_INT) {
-                        sprintf(val_str, "%4d", (int)*(item.load.int_param.val_ptr));
+                    if (item.type == ITEM_PARAM_INT)
+                    {
+                        DB_Value_t value;
+                        DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value);
+                    
+                        sprintf(val_str, "%4d", value.raw_data);
 
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT) {
                             // Если редактируем — рисуем белое окошко внутри серой полосы

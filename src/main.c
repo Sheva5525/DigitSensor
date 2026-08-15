@@ -7,6 +7,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "timers.h"
 #include "stm32f4xx.h"
 #include <stdio.h>
 #include <string.h>
@@ -22,6 +23,12 @@ void vLedFlashTask(void *pvParameters)
         //GPIOC->ODR ^= (1UL << 13);   // Инверсия PC13
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
+}
+
+void vDbSyncTimerCallback(TimerHandle_t xTimer)
+{
+    (void)xTimer; // Избавляемся от варнинга о неиспользуемой переменной
+    DB_Sync(); // Проверяем и сохраняем измененные данные
 }
 
 extern int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8_t *data);
@@ -152,15 +159,24 @@ int main(void)
     DB_Init();
     UI_Init();
 
-    xTaskCreate(vLedFlashTask, "LED", 256, NULL, 1, NULL);
+    DB_LoadFromFlash();
 
-    xTaskCreate(vReceiveTask, "Receive", 2024, NULL, 2, NULL);
-
-    xTaskCreate(vPawnTask, "PawnVM", 2048, NULL, 1, &xPawnTaskHandle);
+    TimerHandle_t xDbTimer = xTimerCreate("DbSyncTimer", 
+                                          pdMS_TO_TICKS(5000), 
+                                          pdTRUE, 
+                                          (void*)0, 
+                                          vDbSyncTimerCallback);
     
+    if (xDbTimer != NULL)
+    {
+        xTimerStart(xDbTimer, 0);
+    }
+
+    xTaskCreate(vLedFlashTask, "LED", 256, NULL, 1, NULL);
+    xTaskCreate(vReceiveTask, "Receive", 2024, NULL, 2, NULL);
+    xTaskCreate(vPawnTask, "PawnVM", 2048, NULL, 1, &xPawnTaskHandle);
     xTaskCreate(vEncButtonTask, "EncBtn", 128, NULL, 3, &xEncoderButtonTaskHandle);
     xTaskCreate(vEncoderPollTask, "EncPoll", 128, NULL, 2, NULL);
-    
     xTaskCreate(vGuiTask, "GuiTask", 2048, NULL, 2, NULL);
 
     vTaskStartScheduler();

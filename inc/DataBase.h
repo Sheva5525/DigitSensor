@@ -50,7 +50,8 @@ typedef struct
 {
     uint8_t key;          
     DB_Value_t value;     
-    bool is_active;       
+    bool is_active;
+    bool is_dirty; 
 } DB_Row_t;
 
 // API
@@ -68,5 +69,7 @@ void DB_LoadFromFlash(void); // Загрузка из флеша при стар
 bool DB_StoreFile(const uint8_t *data, uint32_t length);
 
 bool DB_ReadFile(uint8_t *buffer, uint32_t max_length, uint32_t *out_length);
+
+void DB_Sync();
 
 #endif // DATABASE_H
