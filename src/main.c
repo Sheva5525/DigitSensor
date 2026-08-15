@@ -13,7 +13,6 @@
 
 extern QueueHandle_t xUartQueue;
 extern TaskHandle_t xPawnTaskHandle;
-extern ucg_t ucg;
 
 void vLedFlashTask(void *pvParameters)
 {
@@ -99,8 +98,7 @@ void vEncButtonTask(void *pvParameters)
         
         // Проверяем, зажат ли пин PB1 до сих пор (ноль — кнопка нажата)
         if (!(GPIOB->IDR & GPIO_IDR_IDR_1)) {
-            // ДЕЙСТВИЕ: Кнопка энкодера успешно нажата!
-            // Например: отправка события или смена состояния меню
+            UI_ProcessAction(); 
         }
     }
 }
@@ -111,112 +109,35 @@ void vEncoderPollTask(void *pvParameters)
     int16_t last_tim_cnt = 0;
     int16_t current_tim_cnt = 0;
     int16_t delta = 0;
-    int16_t accumulator = 0;
 
+    // Сбрасываем аппаратный счетчик при старте задачи
     TIM4->CNT = 0;
+    last_tim_cnt = 0;
 
     while (1) {
+        // Читаем текущее значение аппаратного счетчика таймера TIM4
         current_tim_cnt = (int16_t)TIM4->CNT;
+        
+        // Вычисляем разницу (сколько шагов сделали с прошлого опроса)
         delta = current_tim_cnt - last_tim_cnt;
 
         if (delta != 0) {
-            accumulator += delta;
-            last_tim_cnt = current_tim_cnt;
-
-            if (accumulator >= 2)
-            {
-                my_encoder_counter++; 
-                accumulator %= 2; 
+            // Если дельта положительная — крутим вниз, если отрицательная — вверх
+            if (delta > 0) {
+                UI_ProcessNavigate(1);  // Курсор вниз / параметр вверх
+            } else {
+                UI_ProcessNavigate(-1); // Курсор вверх / параметр вниз
             }
-            else if (accumulator <= -2)
-            {
-                my_encoder_counter--;
-                accumulator %= 2;
-            }
-        }
-
-        vTaskDelay(pdMS_TO_TICKS(20));
-    }
-}
-
-void int_to_str(int32_t num, char *str) {
-    int i = 0;
-    int is_negative = 0;
-
-    if (num == 0) {
-        str[i++] = '0';
-        str[i] = '\0';
-        return;
-    }
-
-    if (num < 0) {
-        is_negative = 1;
-        num = -num;
-    }
-
-    while (num > 0) {
-        str[i++] = (num % 10) + '0';
-        num /= 10;
-    }
-
-    if (is_negative) {
-        str[i++] = '-';
-    }
-
-    str[i] = '\0';
-
-    // Разворачиваем строку
-    int j;
-    char temp;
-    for (j = 0; j < i / 2; j++) {
-        temp = str[j];
-        str[j] = str[i - j - 1];
-        str[i - j - 1] = temp;
-    }
-}
-
-void vGuiTask(void *pvParameters) 
-{
-    // Назначаем ИНДЕКС 1 как цвет фона системы (Глубокий синий)
-    ucg_SetColor(&ucg, 1, 0, 0, 150); 
-    
-    // Очищаем ВЕСЬ экран цветом из Индекса 1 (Синим) — это самый правильный и быстрый способ
-    ucg_ClearScreen(&ucg);
-
-    // Назначаем ИНДЕКС 0 как основной цвет рисования (Ярко-жёлтый)
-    ucg_SetColor(&ucg, 0, 255, 255, 0); 
-    
-    // Рисуем рамку жёлтым цветом (используется idx=0)
-    ucg_DrawFrame(&ucg, 4, 4, ucg_GetWidth(&ucg) - 8, ucg_GetHeight(&ucg) - 8);
-
-    // Выводим заголовок жёлтым цветом (используется idx=0)
-    ucg_DrawString(&ucg, 15, 35, 0, "ENCODER:");
-
-    int32_t last_displayed_value = 999999; 
-    char enc_str[16]; 
-
-    while (1) {
-        int32_t current_value = my_encoder_counter;
-
-        if (current_value != last_displayed_value) {
             
-            // 1. Чтобы стереть старые цифры, мы временно переключаем ИНДЕКС 0 в цвет фона (Синий)
-            ucg_SetColor(&ucg, 0, 0, 0, 150); 
-            ucg_DrawBox(&ucg, 15, 45, 95, 22); 
-
-            // 2. Переводим значение в строку
-            int_to_str(current_value, enc_str);
-
-            // 3. Возвращаем ИНДЕКС 0 в БЕЛЫЙ цвет для отрисовки новых цифр счетчика
-            ucg_SetColor(&ucg, 0, 255, 255, 255); 
-            ucg_DrawString(&ucg, 15, 63, 0, enc_str);
-
-            last_displayed_value = current_value;
+            // Запоминаем текущее положение счетчика
+            last_tim_cnt = current_tim_cnt;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+        // Опрашиваем аппаратный таймер каждые 20 мс
+        vTaskDelay(pdMS_TO_TICKS(20)); 
     }
 }
+
 
 int main(void)
 {
@@ -235,7 +156,7 @@ int main(void)
     xTaskCreate(vEncButtonTask, "EncBtn", 128, NULL, 3, &xEncoderButtonTaskHandle);
     xTaskCreate(vEncoderPollTask, "EncPoll", 128, NULL, 2, NULL);
     
-    xTaskCreate(vGuiTask, "GuiTask", 512, NULL, 2, NULL);
+    xTaskCreate(vGuiTask, "GuiTask", 2048, NULL, 2, NULL);
 
     vTaskStartScheduler();
 

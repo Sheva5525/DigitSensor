@@ -20,7 +20,7 @@
 #define TEST_RST_H()  GPIOA->BSRR = (1UL << 1)   // PA1 в 1
 #define TEST_RST_L()  GPIOA->BSRR = (1UL << 17)  // PA1 в 0
 
-int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8_t *data) 
+int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8_t *data)
 {
   switch(msg)
   {
