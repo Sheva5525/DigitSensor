@@ -158,6 +158,9 @@ void vGuiTask(void *pvParameters)
     // Буфер в статической памяти для защиты стека FreeRTOS
     static char val_str[16]; 
     
+    // Инициализируем кэш параметров стартовыми значениями
+    for(int k = 0; k < MENU_SIZE; k++) last_param_values[k] = -999999;
+    
     vTaskDelay(pdMS_TO_TICKS(100));
 
     while (1) {
@@ -166,7 +169,13 @@ void vGuiTask(void *pvParameters)
             continue;
         }
 
+        // Локальный флаг, чтобы не потерять событие принудительной очистки экрана
+        bool is_forced = false;
+
         if (ui.force_refresh) {
+            is_forced = true;
+            ui.force_refresh = false; // Сбрасываем сразу, событие сохранено в is_forced
+
             // 1. Ручная заливка фона в БЕЛЫЙ через Индекс 0
             ucg_SetColor(&ucg, 0, COLOR_WHITE); 
             ucg_DrawBox(&ucg, 0, 0, ucg_GetWidth(&ucg), ucg_GetHeight(&ucg));
@@ -179,52 +188,55 @@ void vGuiTask(void *pvParameters)
             ucg_SetColor(&ucg, 0, COLOR_BLACK); 
             ucg_DrawString(&ucg, 16, 20, 0, ui.current_menu->title);
 
-            ui.force_refresh = false;
             last_cursor = 255; 
             for(int k = 0; k < MENU_SIZE; k++) last_param_values[k] = -999999;
         }
 
         // Защищаем проверку изменений от вмешательства энкодера
         vTaskSuspendAll();
-        bool need_redraw = (ui.cursor != last_cursor) || (ui.mode != last_mode);
-        
-        if (!need_redraw) {
-            for (uint8_t i = 0; i < ui.current_menu->size; i++) {
-                if (ui.current_menu->items[i].type == ITEM_PARAM_INT) {
-                
-                    DB_Value_t value;
-                    DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value);
+        uint8_t current_ui_cursor = ui.cursor;
+        UiMode_t current_ui_mode = ui.mode;
+        xTaskResumeAll();
 
+        // Экран требует отрисовки если: сменился курсор, сменился режим или была команда force_refresh
+        bool need_redraw = (current_ui_cursor != last_cursor) || 
+                           (current_ui_mode != last_mode) || 
+                           is_forced;
+        
+        // Массив измененных параметров для точечного обновления экрана
+        bool param_changed[MENU_SIZE] = { false };
+
+        // ВСЕГДА опрашиваем базу данных для обновления кэша параметров
+        for (uint8_t i = 0; i < ui.current_menu->size; i++) {
+            if (ui.current_menu->items[i].type == ITEM_PARAM_INT) {
+                DB_Value_t value;
+                if (DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value)) {
                     if (value.raw_data != last_param_values[i]) {
                         need_redraw = true;
-                        last_param_values[i] = value.raw_data;
+                        param_changed[i] = true; // Фиксируем, что именно этот параметр изменился
+                        last_param_values[i] = value.raw_data; // Обновляем кэш
                     }
                 }
             }
         }
-        xTaskResumeAll();
 
         if (need_redraw) {
             uint16_t start_y = 38; 
             uint16_t step_y = 14;  
 
-            // Сохраняем текущие значения курсора и режима атомарно
-            vTaskSuspendAll();
-            uint8_t current_ui_cursor = ui.cursor;
-            UiMode_t current_ui_mode = ui.mode;
-            xTaskResumeAll();
-
             // Флаг определяет, была ли только что выполнена полная очистка экрана.
-            // Если last_cursor равен 255, значит экран чистый и нужно прорисовать ВСЁ.
             bool is_first_render = (last_cursor == 255);
 
             for (uint8_t i = 0; i < ui.current_menu->size; i++) {
-                // ИСПРАВЛЕНО: Строка обновляется, если она изменилась, редактируется 
-                // ИЛИ если это самый первый рендер после force_refresh
+                // Строка ОБЯЗАНА обновиться, если:
+                // 1. Это первый рендер после force_refresh
+                // 2. Строка является текущим курсором
+                // 3. Строка являлась предыдущим курсором (нужно стереть с неё выделение)
+                // 4. Значение этого параметра в БД изменилось при прокрутке энкодера
                 bool row_changed = is_first_render ||
                                    (i == current_ui_cursor) || 
                                    (i == last_cursor) || 
-                                   (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT);
+                                   param_changed[i];
 
                 if (row_changed) {
                     vTaskSuspendAll();
@@ -277,7 +289,6 @@ void vGuiTask(void *pvParameters)
             last_mode = current_ui_mode;
             xTaskResumeAll();
         }
-
 
         vTaskDelay(pdMS_TO_TICKS(20)); // Частота опроса графики
     }

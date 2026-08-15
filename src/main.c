@@ -18,9 +18,15 @@ extern TaskHandle_t xPawnTaskHandle;
 void vLedFlashTask(void *pvParameters)
 {
     (void)pvParameters;
+    int i = 0;
     while (1)
     {
-        //GPIOC->ODR ^= (1UL << 13);   // Инверсия PC13
+        DB_Value_t value;
+        DB_Select(0, &value);
+
+        value.raw_data = i + 1;
+        i += 1;
+        DB_Insert(0, value); 
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
