@@ -406,6 +406,11 @@
               <FilePath>.\src\xmodem.c</FilePath>
             </File>
             <File>
+              <FileName>iPawn.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\iPawn.c</FilePath>
+            </File>
+            <File>
               <FileName>iFS.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\iFS.c</FilePath>
@@ -429,6 +434,11 @@
               <FileName>hardware.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\inc\hardware.h</FilePath>
+            </File>
+            <File>
+              <FileName>iPawn.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\iPawn.h</FilePath>
             </File>
             <File>
               <FileName>W25Q16JVSNIQ_driver.h</FileName>
