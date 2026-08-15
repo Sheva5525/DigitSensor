@@ -8,80 +8,74 @@
 /* Includes ------------------------------------------------------------------*/
 
 #include "ymodem.h"
-#include <string.h>
-
-#include "stm32f4xx.h"
-#include <stdlib.h>
-
-/* Подключение FreeRTOS */
 #include "FreeRTOS.h"
 #include "queue.h"
 #include "task.h"
+#include "stm32f4xx.h"
+#include <stdlib.h>
+#include <string.h>
 
-extern QueueHandle_t xUartQueue;
+QueueHandle_t xUartQueue;
+
 void SendCharacter(uint8_t uc)
 {
     while (!(USART1->SR & USART_SR_TXE));
     USART1->DR = uc;
 }
-/* Определение базовых типов и констант HAL */
-typedef enum { 
-  HAL_OK      = 0x00, 
-  HAL_ERROR   = 0x01, 
-  HAL_BUSY    = 0x02, 
-  HAL_TIMEOUT = 0x03 
-} HAL_StatusTypeDef;
+
+typedef enum
+{ 
+    UART_OK      = 0x00
+  , UART_ERROR   = 0x01
+  , UART_BUSY    = 0x02
+  , UART_TIMEOUT = 0x03
+} UART_STATUS;
 
 int UartHandle = 0;
 int CrcHandle = 0;
 
-/* Глобальный массив для имени файла, который ожидает оригинальный код ST */
+/* Имя файла */
 uint8_t aFileName[FILE_NAME_LENGTH];
 
 #define APPLICATION_ADDRESS  0x08000000
-#define USER_FLASH_SIZE      (512 * 1024) // 512 КБ для STM32F411CEU6
+#define USER_FLASH_SIZE      (256 * 1024) // 256 KB
 #define FLASHIF_OK           0
 #define FLASHIF_FAIL         1
 #define UART_CLEAR_OREF      0
 
 #define Serial_PutByte(ch)   SendCharacter(ch)
 
-/* Чистая реализация HAL_UART_Receive через вашу очередь */
-HAL_StatusTypeDef HAL_UART_Receive(int *handle, uint8_t *p_data, uint16_t size, uint32_t timeout_ms)
+UART_STATUS UART_Receive(int *handle, uint8_t *p_data, uint16_t size, uint32_t timeout_ms)
 {
     for (uint16_t i = 0; i < size; i++)
     {
         if (xQueueReceive(xUartQueue, &p_data[i], pdMS_TO_TICKS(timeout_ms)) != pdPASS)
         {
-            return HAL_TIMEOUT; 
+            return UART_TIMEOUT; 
         }
     }
-    return HAL_OK;
+    return UART_OK;
 }
 
-/* Реализация HAL_UART_Transmit через вашу функцию отправки */
-HAL_StatusTypeDef HAL_UART_Transmit(int *handle, uint8_t *p_data, uint16_t size, uint32_t timeout_ms)
+UART_STATUS UART_Transmit(int *handle, uint8_t *p_data, uint16_t size, uint32_t timeout_ms)
 {
     for (uint16_t i = 0; i < size; i++)
     {
         SendCharacter(p_data[i]);
     }
-    return HAL_OK;
+    return UART_OK;
 }
 
-/* Реализация системной задержки через FreeRTOS */
-void HAL_Delay(uint32_t Delay)
+void UART_Delay(uint32_t Delay)
 {
     vTaskDelay(pdMS_TO_TICKS(Delay));
 }
 
-/* Реальный сброс ошибок UART для STM32F4 (чтение SR, затем чтение DR) */
-#define __HAL_UART_FLUSH_DRREGISTER(handle)  do { volatile uint32_t tmpreg = USART1->SR; tmpreg = USART1->DR; (void)tmpreg; } while(0)
-#define __HAL_UART_CLEAR_IT(handle, flag)     do { volatile uint32_t tmpreg = USART1->SR; tmpreg = USART1->DR; (void)tmpreg; } while(0)
+#define UART_FLUSH_DRREGISTER(handle)  do { volatile uint32_t tmpreg = USART1->SR; tmpreg = USART1->DR; (void)tmpreg; } while(0)
+#define UART_CLEAR_IT(handle, flag)    do { volatile uint32_t tmpreg = USART1->SR; tmpreg = USART1->DR; (void)tmpreg; } while(0)
 
-
-/* Чистая реализация HAL_CRC_Calculate (алгоритм CRC-16 XMODEM) */
-uint32_t HAL_CRC_Calculate(int *handle, uint32_t *p_buffer, uint32_t length)
+/* Чистая реализация CRC16_Calculate (алгоритм CRC-16 XMODEM) */
+uint32_t CRC16_Calculate(int *handle, uint32_t *p_buffer, uint32_t length)
 {
     uint8_t *ptr = (uint8_t*)p_buffer;
     uint16_t crc = 0;
@@ -102,9 +96,11 @@ uint32_t HAL_CRC_Calculate(int *handle, uint32_t *p_buffer, uint32_t length)
 void Int2Str(uint8_t *p_str, uint32_t intnum)
 {
     uint32_t i, divider = 1000000000, pos = 0, status = 0;
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < 10; i++)
+    {
         if ((intnum / divider) > 0) status = 1;
-        if (status == 1) {
+        if (status == 1)
+        {
             p_str[pos++] = (intnum / divider) + '0';
             intnum = intnum % divider;
         }
@@ -114,7 +110,7 @@ void Int2Str(uint8_t *p_str, uint32_t intnum)
     p_str[pos] = '\0';
 }
 
-/* Вспомогательная функция конвертации строки ASCII в число (нужна для парсинга размера файла) */
+/* Вспомогательная функция конвертации строки ASCII в число для парсинга размера файла */
 uint32_t Str2Int(uint8_t *p_inputstr, uint32_t *p_intnum)
 {
     uint32_t i = 0, res = 0;
@@ -134,11 +130,14 @@ uint32_t Str2Int(uint8_t *p_inputstr, uint32_t *p_intnum)
             i++;
         }
     }
+
     *p_intnum = res;
+
     return 1;
 }
 
-#define MAX_FILE_SIZE 61440 // Укажите ваш реальный размер MAX_FILE_SIZE, если он другой
+#define MAX_FILE_SIZE 61440
+
 typedef struct
 {
     uint8_t data[MAX_FILE_SIZE];
@@ -152,7 +151,6 @@ static uint32_t RAM_Write_Ptr = 0;
 
 uint32_t FLASH_If_Erase(uint32_t start) 
 { 
-    // Перед началом приема сбрасываем указатель записи в ноль
     RAM_Write_Ptr = 0; 
     g_receivedFile.length = 0;
     return FLASHIF_OK; 
@@ -160,25 +158,19 @@ uint32_t FLASH_If_Erase(uint32_t start)
 
 uint32_t FLASH_If_Write(uint32_t dest, uint32_t *src, uint32_t len) 
 {
-    // len передается в словах (по 4 байта), переводим в байты
     uint32_t bytes_to_write = len * 4; 
-    
-    // Защита от переполнения буфера RAM
+
     if (RAM_Write_Ptr + bytes_to_write > MAX_FILE_SIZE)
     {
-        return FLASHIF_FAIL; // Буфер переполнен
+        return FLASHIF_FAIL;
     }
-    
-    // Копируем данные из буфера пакета YMODEM напрямую в ваш g_receivedFile.data
+
     memcpy(&g_receivedFile.data[RAM_Write_Ptr], (uint8_t*)src, bytes_to_write);
-    
-    // Сдвигаем указатель записи
+
     RAM_Write_Ptr += bytes_to_write;
-    
+
     return FLASHIF_OK; 
 }
-
-
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -191,7 +183,7 @@ uint8_t aPacketData[PACKET_1K_SIZE + PACKET_DATA_INDEX + PACKET_TRAILER_SIZE];
 /* Private function prototypes -----------------------------------------------*/
 static void PrepareIntialPacket(uint8_t *p_data, const uint8_t *p_file_name, uint32_t length);
 static void PreparePacket(uint8_t *p_source, uint8_t *p_packet, uint8_t pkt_nr, uint32_t size_blk);
-static HAL_StatusTypeDef ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint32_t timeout);
+static UART_STATUS ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint32_t timeout);
 uint16_t UpdateCRC16(uint16_t crc_in, uint8_t byte);
 uint16_t Cal_CRC16(const uint8_t* p_data, uint32_t size);
 uint8_t CalcChecksum(const uint8_t *p_data, uint32_t size);
@@ -206,20 +198,20 @@ uint8_t CalcChecksum(const uint8_t *p_data, uint32_t size);
   *     2: abort by sender
   *    >0: packet length
   * @param  timeout
-  * @retval HAL_OK: normally return
-  *         HAL_BUSY: abort by user
+  * @retval UART_OK: normally return
+  *         UART_BUSY: abort by user
   */
-static HAL_StatusTypeDef ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint32_t timeout)
+static UART_STATUS ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint32_t timeout)
 {
   uint32_t crc;
   uint32_t packet_size = 0;
-  HAL_StatusTypeDef status;
+  UART_STATUS status;
   uint8_t char1;
 
   *p_length = 0;
-  status = HAL_UART_Receive(&UartHandle, &char1, 1, timeout);
+  status = UART_Receive(&UartHandle, &char1, 1, timeout);
 
-  if (status == HAL_OK)
+  if (status == UART_OK)
   {
     switch (char1)
     {
@@ -232,46 +224,46 @@ static HAL_StatusTypeDef ReceivePacket(uint8_t *p_data, uint32_t *p_length, uint
       case EOT:
         break;
       case CA:
-        if ((HAL_UART_Receive(&UartHandle, &char1, 1, timeout) == HAL_OK) && (char1 == CA))
+        if ((UART_Receive(&UartHandle, &char1, 1, timeout) == UART_OK) && (char1 == CA))
         {
           packet_size = 2;
         }
         else
         {
-          status = HAL_ERROR;
+          status = UART_ERROR;
         }
         break;
       case ABORT1:
       case ABORT2:
-        status = HAL_BUSY;
+        status = UART_BUSY;
         break;
       default:
-        status = HAL_ERROR;
+        status = UART_ERROR;
         break;
     }
     *p_data = char1;
 
     if (packet_size >= PACKET_SIZE )
     {
-      status = HAL_UART_Receive(&UartHandle, &p_data[PACKET_NUMBER_INDEX], packet_size + PACKET_OVERHEAD_SIZE, timeout);
+      status = UART_Receive(&UartHandle, &p_data[PACKET_NUMBER_INDEX], packet_size + PACKET_OVERHEAD_SIZE, timeout);
 
       /* Simple packet sanity check */
-      if (status == HAL_OK )
+      if (status == UART_OK )
       {
         if (p_data[PACKET_NUMBER_INDEX] != ((p_data[PACKET_CNUMBER_INDEX]) ^ NEGATIVE_BYTE))
         {
           packet_size = 0;
-          status = HAL_ERROR;
+          status = UART_ERROR;
         }
         else
         {
           /* Check packet CRC */
           crc = p_data[ packet_size + PACKET_DATA_INDEX ] << 8;
           crc += p_data[ packet_size + PACKET_DATA_INDEX + 1 ];
-          if (HAL_CRC_Calculate(&CrcHandle, (uint32_t*)&p_data[PACKET_DATA_INDEX], packet_size) != crc )
+          if (CRC16_Calculate(&CrcHandle, (uint32_t*)&p_data[PACKET_DATA_INDEX], packet_size) != crc )
           {
             packet_size = 0;
-            status = HAL_ERROR;
+            status = UART_ERROR;
           }
         }
       }
@@ -457,7 +449,7 @@ COM_StatusTypeDef Ymodem_Receive ( uint32_t *p_size )
     {
       switch (ReceivePacket(aPacketData, &packet_length, DOWNLOAD_TIMEOUT))
       {
-        case HAL_OK:
+        case UART_OK:
           errors = 0;
           switch (packet_length)
           {
@@ -509,8 +501,8 @@ COM_StatusTypeDef Ymodem_Receive ( uint32_t *p_size )
                     {
                       /* End session */
                       tmp = CA;
-                      HAL_UART_Transmit(&UartHandle, &tmp, 1, NAK_TIMEOUT);
-                      HAL_UART_Transmit(&UartHandle, &tmp, 1, NAK_TIMEOUT);
+                      UART_Transmit(&UartHandle, &tmp, 1, NAK_TIMEOUT);
+                      UART_Transmit(&UartHandle, &tmp, 1, NAK_TIMEOUT);
                       result = COM_LIMIT;
                     }
                     /* erase user application area */
@@ -553,7 +545,7 @@ COM_StatusTypeDef Ymodem_Receive ( uint32_t *p_size )
               break;
           }
           break;
-        case HAL_BUSY: /* Abort actually */
+        case UART_BUSY: /* Abort actually */
           Serial_PutByte(CA);
           Serial_PutByte(CA);
           result = COM_ABORT;
@@ -608,11 +600,11 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
   while (( !ack_recpt ) && ( result == COM_OK ))
   {
     /* Send Packet */
-    HAL_UART_Transmit(&UartHandle, &aPacketData[PACKET_START_INDEX], PACKET_SIZE + PACKET_HEADER_SIZE, NAK_TIMEOUT);
+    UART_Transmit(&UartHandle, &aPacketData[PACKET_START_INDEX], PACKET_SIZE + PACKET_HEADER_SIZE, NAK_TIMEOUT);
 
     /* Send CRC or Check Sum based on CRC16_F */
 #ifdef CRC16_F
-    temp_crc = HAL_CRC_Calculate(&CrcHandle, (uint32_t*)&aPacketData[PACKET_DATA_INDEX], PACKET_SIZE);
+    temp_crc = CRC16_Calculate(&CrcHandle, (uint32_t*)&aPacketData[PACKET_DATA_INDEX], PACKET_SIZE);
     Serial_PutByte(temp_crc >> 8);
     Serial_PutByte(temp_crc & 0xFF);
 #else /* CRC16_F */
@@ -621,20 +613,20 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
 #endif /* CRC16_F */
 
     /* Wait for Ack and 'C' */
-    if (HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK)
+    if (UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == UART_OK)
     {
       if (a_rx_ctrl[0] == ACK)
       {
         ack_recpt = 1;
-        HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT); //BFM added to wait for the 'C'
+        UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT); //BFM added to wait for the 'C'
       }
       else if (a_rx_ctrl[0] == CA)
       {
-        if ((HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK) && (a_rx_ctrl[0] == CA))
+        if ((UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == UART_OK) && (a_rx_ctrl[0] == CA))
         {
-          HAL_Delay( 2 );
-          __HAL_UART_FLUSH_DRREGISTER(&UartHandle);
-          __HAL_UART_CLEAR_IT(&UartHandle, UART_CLEAR_OREF);
+          UART_Delay( 2 );
+          UART_FLUSH_DRREGISTER(&UartHandle);
+          UART_CLEAR_IT(&UartHandle, UART_CLEAR_OREF);
           result = COM_ABORT;
         }
       }
@@ -674,11 +666,11 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
         pkt_size = PACKET_SIZE;
       }
 
-      HAL_UART_Transmit(&UartHandle, &aPacketData[PACKET_START_INDEX], pkt_size + PACKET_HEADER_SIZE, NAK_TIMEOUT);
+      UART_Transmit(&UartHandle, &aPacketData[PACKET_START_INDEX], pkt_size + PACKET_HEADER_SIZE, NAK_TIMEOUT);
 
       /* Send CRC or Check Sum based on CRC16_F */
 #ifdef CRC16_F
-      temp_crc = HAL_CRC_Calculate(&CrcHandle, (uint32_t*)&aPacketData[PACKET_DATA_INDEX], pkt_size);
+      temp_crc = CRC16_Calculate(&CrcHandle, (uint32_t*)&aPacketData[PACKET_DATA_INDEX], pkt_size);
       Serial_PutByte(temp_crc >> 8);
       Serial_PutByte(temp_crc & 0xFF);
 #else /* CRC16_F */
@@ -687,7 +679,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
 #endif /* CRC16_F */
 
       /* Wait for Ack */
-      if ((HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK) && (a_rx_ctrl[0] == ACK))
+      if ((UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == UART_OK) && (a_rx_ctrl[0] == ACK))
       {
         ack_recpt = 1;
         if (size > pkt_size)
@@ -731,7 +723,7 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
     Serial_PutByte(EOT);
 
     /* Wait for Ack */
-    if (HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK)
+    if (UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == UART_OK)
     {
       if (a_rx_ctrl[0] == ACK)
       {
@@ -739,11 +731,11 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
       }
       else if (a_rx_ctrl[0] == CA)
       {
-        if ((HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK) && (a_rx_ctrl[0] == CA))
+        if ((UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == UART_OK) && (a_rx_ctrl[0] == CA))
         {
-          HAL_Delay( 2 );
-          __HAL_UART_FLUSH_DRREGISTER(&UartHandle);
-          __HAL_UART_CLEAR_IT(&UartHandle, UART_CLEAR_OREF);
+          UART_Delay( 2 );
+          UART_FLUSH_DRREGISTER(&UartHandle);
+          UART_CLEAR_IT(&UartHandle, UART_CLEAR_OREF);
           result = COM_ABORT;
         }
       }
@@ -772,11 +764,11 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
     }
 
     /* Send Packet */
-    HAL_UART_Transmit(&UartHandle, &aPacketData[PACKET_START_INDEX], PACKET_SIZE + PACKET_HEADER_SIZE, NAK_TIMEOUT);
+    UART_Transmit(&UartHandle, &aPacketData[PACKET_START_INDEX], PACKET_SIZE + PACKET_HEADER_SIZE, NAK_TIMEOUT);
 
     /* Send CRC or Check Sum based on CRC16_F */
 #ifdef CRC16_F
-    temp_crc = HAL_CRC_Calculate(&CrcHandle, (uint32_t*)&aPacketData[PACKET_DATA_INDEX], PACKET_SIZE);
+    temp_crc = CRC16_Calculate(&CrcHandle, (uint32_t*)&aPacketData[PACKET_DATA_INDEX], PACKET_SIZE);
     Serial_PutByte(temp_crc >> 8);
     Serial_PutByte(temp_crc & 0xFF);
 #else /* CRC16_F */
@@ -785,13 +777,13 @@ COM_StatusTypeDef Ymodem_Transmit (uint8_t *p_buf, const uint8_t *p_file_name, u
 #endif /* CRC16_F */
 
     /* Wait for Ack and 'C' */
-    if (HAL_UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == HAL_OK)
+    if (UART_Receive(&UartHandle, &a_rx_ctrl[0], 1, NAK_TIMEOUT) == UART_OK)
     {
       if (a_rx_ctrl[0] == CA)
       {
-          HAL_Delay( 2 );
-          __HAL_UART_FLUSH_DRREGISTER(&UartHandle);
-          __HAL_UART_CLEAR_IT(&UartHandle, UART_CLEAR_OREF);
+          UART_Delay( 2 );
+          UART_FLUSH_DRREGISTER(&UartHandle);
+          UART_CLEAR_IT(&UartHandle, UART_CLEAR_OREF);
           result = COM_ABORT;
       }
     }

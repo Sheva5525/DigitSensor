@@ -1,6 +1,6 @@
 #include "DataBase.h"
+#include "ymodem.h"
 #include "iPawn.h"
-#include "xmodem.h"
 #include "hardware.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -8,51 +8,69 @@
 #include "stm32f4xx.h"
 #include <string.h>
 
+extern QueueHandle_t xUartQueue;
 extern TaskHandle_t xPawnTaskHandle;
 
 void vLedFlashTask(void *pvParameters)
 {
     (void)pvParameters;
-    while (1) {
+    while (1)
+    {
         //GPIOC->ODR ^= (1UL << 13);   // Инверсия PC13
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
 
+
+
+/* Массив с именем файла, который заполняется внутри ymodem.c */
+extern uint8_t aFileName[FILE_NAME_LENGTH]; 
+
 void vReceiveTask(void *pvParameters)
 {
     vTaskDelay(pdMS_TO_TICKS(1000));
 
-    g_receivedFile.length = SimpleReceiveFile(g_receivedFile.data,
-                                              sizeof(g_receivedFile.data),
-                                              100);
+    // Переменная для записи точного размера файла от YMODEM
+    uint32_t ymodem_file_size = 0;
+    xQueueReset(xUartQueue);
+    // Запускаем прием по YMODEM (таймауты зашиты внутри него)
+    COM_StatusTypeDef ymodem_status = Ymodem_Receive(&ymodem_file_size);
 
-    if (g_receivedFile.length == 0)
+    if (ymodem_status == COM_OK && ymodem_file_size > 0)
     {
-        // Приём не удался — пробуем прочитать файл из Flash
+        // Успех! Записываем точный размер файла (без мусора округления блоков)
+        g_receivedFile.length = ymodem_file_size;
+        
+        /* 
+           БОНУС: Теперь в массиве (char*)aFileName у вас лежит реальное имя файла 
+           (например, "setup.bin"). Вы можете использовать его, если нужно.
+        */
+
+        // Принят новый файл — сохраняем его в Flash через ваш DB менеджер
+        if (!DB_StoreFile(g_receivedFile.data, g_receivedFile.length))
+        {
+            // Ошибка сохранения, но данные в ОЗУ есть
+        }
+    }
+    else
+    {
+        // Приём по YMODEM не удался — пробуем прочитать старый файл из Flash
         if (!DB_ReadFile(g_receivedFile.data, sizeof(g_receivedFile.data), &g_receivedFile.length))
         {
             // Файла тоже нет — длина останется 0
             g_receivedFile.length = 0;
         }
     }
-    else
-    {
-        // Принят новый файл — сохраняем его в Flash
-        if (!DB_StoreFile(g_receivedFile.data, g_receivedFile.length))
-        {
-            // Ошибка сохранения, но данные в ОЗУ есть — можно продолжить
-            // или обработать ошибку
-        }
-    }
 
     // Уведомляем vPawnTask, если есть данные (или даже если нет, но тогда она должна обработать 0)
-    if (xPawnTaskHandle != NULL) {
+    if (xPawnTaskHandle != NULL)
+    {
         xTaskNotifyGive(xPawnTaskHandle);
     }
 
     vTaskDelete(NULL);
 }
+
 
 void vPawnTask(void *pvParameters)
 {
@@ -73,7 +91,7 @@ int main(void)
     xTaskCreate(vLedFlashTask, "LED", 256, NULL, 1, NULL);
     
     // Приоритет задачи приема увеличен до 2, чтобы данные XModem не терялись
-    xTaskCreate(vReceiveTask, "Receive", 1024, NULL, 2, NULL);
+    xTaskCreate(vReceiveTask, "Receive", 2024, NULL, 2, NULL);
     
     // Исправлено: передаем функцию vPawnTask и сохраняем её хэндл xPawnTaskHandle
     xTaskCreate(vPawnTask, "PawnVM", 2048, NULL, 1, &xPawnTaskHandle);
