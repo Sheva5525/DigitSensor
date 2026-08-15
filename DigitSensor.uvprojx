@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>AMX_ANSIONLY</Define>
               <Undefine></Undefine>
-              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc;.\Pawn</IncludePath>
+              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc;.\Pawn;.\ymodem</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -654,6 +654,21 @@
               <FileName>amxcore.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\Pawn\amxcore.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Ymodem</GroupName>
+          <Files>
+            <File>
+              <FileName>ymodem.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\ymodem\ymodem.c</FilePath>
+            </File>
+            <File>
+              <FileName>ymodem.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\ymodem\ymodem.h</FilePath>
             </File>
           </Files>
         </Group>
