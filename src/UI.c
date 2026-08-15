@@ -145,34 +145,39 @@ void vGuiTask(void *pvParameters)
 {
     uint8_t last_cursor = 255;
     UiMode_t last_mode = UI_MODE_NAVIGATE;
-    int32_t last_param_values[MENU_SIZE]; // Буфер для отслеживания изменений параметров
+    int32_t last_param_values[MENU_SIZE]; 
     
+    // Буфер в статической памяти для защиты стека FreeRTOS
+    static char val_str[16]; 
+    
+    vTaskDelay(pdMS_TO_TICKS(100));
+
     while (1) {
         if (ui.mode == UI_MODE_CUSTOM) {
-            // Если мы в режиме LittleFS, UI_Task засыпает, управление у кастомного экрана файлов
             vTaskDelay(pdMS_TO_TICKS(50));
             continue;
         }
 
         if (ui.force_refresh) {
-            // Ручная заливка всего экрана в БЕЛЫЙ
+            // 1. Ручная заливка фона в БЕЛЫЙ через Индекс 0
             ucg_SetColor(&ucg, 0, COLOR_WHITE); 
             ucg_DrawBox(&ucg, 0, 0, ucg_GetWidth(&ucg), ucg_GetHeight(&ucg));
 
-            // КРАСНАЯ рамка
+            // 2. Рисуем КРАСНУЮ рамку
             ucg_SetColor(&ucg, 0, COLOR_RED); 
             ucg_DrawFrame(&ucg, 4, 4, ucg_GetWidth(&ucg) - 8, ucg_GetHeight(&ucg) - 8);
 
-            // ЧЕРНЫЙ заголовок меню
+            // 3. Пишем заголовок ЧЁРНЫМ
             ucg_SetColor(&ucg, 0, COLOR_BLACK); 
-            ucg_DrawString(&ucg, 15, 35, 0, ui.current_menu->title);
+            ucg_DrawString(&ucg, 16, 20, 0, ui.current_menu->title);
 
             ui.force_refresh = false;
-            last_cursor = 255; // Сброс, чтобы принудительно перерисовать строки
-            for(int k=0; k<MENU_SIZE; k++) last_param_values[k] = -999999;
+            last_cursor = 255; 
+            for(int k = 0; k < MENU_SIZE; k++) last_param_values[k] = -999999;
         }
 
-        // Проверяем, нужно ли обновиться (сдвинулся курсор, изменился режим или значение параметра)
+        // Защищаем проверку изменений от вмешательства энкодера
+        vTaskSuspendAll();
         bool need_redraw = (ui.cursor != last_cursor) || (ui.mode != last_mode);
         
         if (!need_redraw) {
@@ -186,58 +191,83 @@ void vGuiTask(void *pvParameters)
                 }
             }
         }
+        xTaskResumeAll();
 
         if (need_redraw) {
-            uint16_t start_y = 65;
-            uint16_t step_y = 22;
+            uint16_t start_y = 38; 
+            uint16_t step_y = 14;  
+
+            // Сохраняем текущие значения курсора и режима атомарно
+            vTaskSuspendAll();
+            uint8_t current_ui_cursor = ui.cursor;
+            UiMode_t current_ui_mode = ui.mode;
+            xTaskResumeAll();
+
+            // Флаг определяет, была ли только что выполнена полная очистка экрана.
+            // Если last_cursor равен 255, значит экран чистый и нужно прорисовать ВСЁ.
+            bool is_first_render = (last_cursor == 255);
 
             for (uint8_t i = 0; i < ui.current_menu->size; i++) {
-                MenuItem_t *item = &ui.current_menu->items[i];
-                uint16_t row_y = start_y + (i * step_y);
+                // ИСПРАВЛЕНО: Строка обновляется, если она изменилась, редактируется 
+                // ИЛИ если это самый первый рендер после force_refresh
+                bool row_changed = is_first_render ||
+                                   (i == current_ui_cursor) || 
+                                   (i == last_cursor) || 
+                                   (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT);
 
-                // 1. ОЧИСТКА СТРОКИ (Белый бокс)
-                ucg_SetColor(&ucg, 0, COLOR_WHITE);
-                ucg_DrawBox(&ucg, 12, row_y - 14, ucg_GetWidth(&ucg) - 24, step_y - 2);
+                if (row_changed) {
+                    vTaskSuspendAll();
+                    MenuItem_t item = ui.current_menu->items[i];
+                    xTaskResumeAll();
 
-                // 2. ПОДЛОЖКА СТРОКИ (Если курсор стоит тут)
-                if (i == ui.cursor) {
-                    ucg_SetColor(&ucg, 0, COLOR_BG_LINE); // Чуть серый фон для всей строки
-                    ucg_DrawBox(&ucg, 12, row_y - 14, ucg_GetWidth(&ucg) - 24, step_y - 2);
-                }
+                    uint16_t row_y = start_y + (i * step_y);
 
-                // 3. ОТРИСОВКА НАЗВАНИЯ (Слева)
-                if (!item->is_enabled) {
-                    ucg_SetColor(&ucg, 0, COLOR_GREY); // Серый цвет текста для неактивных
-                } else {
-                    ucg_SetColor(&ucg, 0, COLOR_BLACK); // Обычный черный
-                }
-                ucg_DrawString(&ucg, 16, row_y, 0, item->name);
-
-                // 4. ОТРИСОВКА ЗНАЧЕНИЯ (Справа, если это параметр)
-                if (item->type == ITEM_PARAM_INT) {
-                    char val_str[16];
-                    sprintf(val_str, "%4d", *(item->load.int_param.val_ptr));
-
-                    // Если мы РЕДАКТИРУЕМ именно эту строку, делаем окошко значения БЕЛЫМ
-                    if (i == ui.cursor && ui.mode == UI_MODE_EDIT) {
-                        ucg_SetColor(&ucg, 0, COLOR_WHITE); // Белое окошко
-                        ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 55, row_y - 14, 40, step_y - 2);
+                    // --- ШАГ 1: ОЧИСТКА / СТИРАНИЕ СТРОКИ ПЕРЕД ОТРИСОВКОЙ ---
+                    if (i == current_ui_cursor) {
+                        ucg_SetColor(&ucg, 0, COLOR_BG_LINE); // Активный пункт -> СЕРЫЙ фон
+                    } else {
+                        ucg_SetColor(&ucg, 0, COLOR_WHITE);   // Все остальные -> БЕЛЫЙ фон
                     }
+                    ucg_DrawBox(&ucg, 12, row_y - 9, ucg_GetWidth(&ucg) - 24, 13);
 
-                    // Выводим само число
-                    if (!item->is_enabled) ucg_SetColor(&ucg, 0, COLOR_GREY);
-                    else ucg_SetColor(&ucg, 0, COLOR_BLACK);
-                    
-                    ucg_DrawString(&ucg, ucg_GetWidth(&ucg) - 50, row_y, 0, val_str);
+                    // --- ШАГ 2: ОТРИСОВКА НАЗВАНИЯ СЛЕВА ---
+                    if (!item.is_enabled) {
+                        ucg_SetColor(&ucg, 0, COLOR_GREY); // Серый для заблокированных
+                    } else {
+                        ucg_SetColor(&ucg, 0, COLOR_BLACK); // Чёрный для обычных
+                    }
+                    ucg_DrawString(&ucg, 16, row_y, 0, item.name);
+
+                    // --- ШАГ 3: ОТРИСОВКА ЗНАЧЕНИЯ СПРАВА ---
+                    if (item.type == ITEM_PARAM_INT) {
+                        sprintf(val_str, "%4d", (int)*(item.load.int_param.val_ptr));
+
+                        if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT) {
+                            // Если редактируем — рисуем белое окошко внутри серой полосы
+                            ucg_SetColor(&ucg, 0, COLOR_WHITE);
+                            ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 28, 13);
+                        }
+
+                        if (!item.is_enabled) ucg_SetColor(&ucg, 0, COLOR_GREY);
+                        else ucg_SetColor(&ucg, 0, COLOR_BLACK);
+                        
+                        ucg_DrawString(&ucg, ucg_GetWidth(&ucg) - 42, row_y, 0, val_str);
+                    }
                 }
             }
-            last_cursor = ui.cursor;
-            last_mode = ui.mode;
+            
+            // Фиксируем состояние для следующего кадра
+            vTaskSuspendAll();
+            last_cursor = current_ui_cursor;
+            last_mode = current_ui_mode;
+            xTaskResumeAll();
         }
 
-        vTaskDelay(pdMS_TO_TICKS(50));
+
+        vTaskDelay(pdMS_TO_TICKS(20)); // Частота опроса графики
     }
 }
+
 
 void UI_Init()
 {

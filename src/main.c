@@ -110,34 +110,39 @@ void vEncoderPollTask(void *pvParameters)
     int16_t current_tim_cnt = 0;
     int16_t delta = 0;
 
-    // Сбрасываем аппаратный счетчик при старте задачи
     TIM4->CNT = 0;
     last_tim_cnt = 0;
 
     while (1) {
-        // Читаем текущее значение аппаратного счетчика таймера TIM4
         current_tim_cnt = (int16_t)TIM4->CNT;
-        
-        // Вычисляем разницу (сколько шагов сделали с прошлого опроса)
         delta = current_tim_cnt - last_tim_cnt;
 
-        if (delta != 0) {
-            // Если дельта положительная — крутим вниз, если отрицательная — вверх
-            if (delta > 0) {
-                UI_ProcessNavigate(1);  // Курсор вниз / параметр вверх
-            } else {
-                UI_ProcessNavigate(-1); // Курсор вверх / параметр вниз
-            }
+        // ФИЛЬТР ЭНКОДЕРА: 
+        // Большинство энкодеров выдают 2 или 4 шага на 1 физический щелчок.
+        // Если у вас перескакивает, поменяйте значение '2' ниже на '4'.
+        const int16_t STEPS_PER_CLICK = 2; 
+
+        if (delta >= STEPS_PER_CLICK) {
+            // Крутанули ВПРАВО/ВНИЗ: делаем строго ОДИН шаг навигации
+            vTaskSuspendAll(); // Защищаем операцию от прерывания другими тасками
+            UI_ProcessNavigate(1);
+            xTaskResumeAll();
             
-            // Запоминаем текущее положение счетчика
-            last_tim_cnt = current_tim_cnt;
+            // Сдвигаем базовый счетчик ровно на отработанный шаг
+            last_tim_cnt += STEPS_PER_CLICK;
+        } 
+        else if (delta <= -STEPS_PER_CLICK) {
+            // Крутанули ВЛЕВО/ВВЕРХ: делаем строго ОДИН шаг навигации
+            vTaskSuspendAll();
+            UI_ProcessNavigate(-1);
+            xTaskResumeAll();
+            
+            last_tim_cnt -= STEPS_PER_CLICK;
         }
 
-        // Опрашиваем аппаратный таймер каждые 20 мс
-        vTaskDelay(pdMS_TO_TICKS(20)); 
+        vTaskDelay(pdMS_TO_TICKS(10)); // Опрос каждые 10 мс для мгновенной отзывчивости
     }
 }
-
 
 int main(void)
 {
