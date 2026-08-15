@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>AMX_ANSIONLY</Define>
               <Undefine></Undefine>
-              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc;.\Pawn;.\ymodem</IncludePath>
+              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc;.\Pawn;.\ymodem;.\Ucglib</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -659,6 +659,101 @@
               <FileName>ymodem.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\ymodem\ymodem.h</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Ucglib</GroupName>
+          <Files>
+            <File>
+              <FileName>ucg.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Ucglib\ucg.h</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_box.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_box.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_circle.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_circle.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_clip.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_clip.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_com_msg_api.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_com_msg_api.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_dev_default_cb.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_dev_default_cb.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_dev_ic_st7735.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_dev_ic_st7735.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_dev_msg_api.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_dev_msg_api.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_dev_tft_128x160_st7735.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_dev_tft_128x160_st7735.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_font.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_font.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_init.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_init.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_line.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_line.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_pixel.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_pixel.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_polygon.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_polygon.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_scale.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_scale.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_bitmap.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_bitmap.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_ccs.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_ccs.c</FilePath>
+            </File>
+            <File>
+              <FileName>ucg_rotate.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Ucglib\ucg_rotate.c</FilePath>
             </File>
           </Files>
         </Group>

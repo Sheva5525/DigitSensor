@@ -18,6 +18,8 @@
 
 #define configPRIO_BITS                         4
 
+#define INCLUDE_xTaskGetSchedulerState    1
+
 /* Минимальный приоритет прерываний (для Системного Таймера FreeRTOS) */
 #define configLIBRARY_LOWEST_INTERRUPT_PRIORITY   15
 
