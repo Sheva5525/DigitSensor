@@ -415,11 +415,31 @@
               <FileType>1</FileType>
               <FilePath>.\src\hardware.c</FilePath>
             </File>
+            <File>
+              <FileName>ST7735_driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\ST7735_driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>UI.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\UI.c</FilePath>
+            </File>
+            <File>
+              <FileName>Fonts.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\Fonts.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
           <GroupName>inc</GroupName>
           <Files>
+            <File>
+              <FileName>ST7735_driver.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\ST7735_driver.h</FilePath>
+            </File>
             <File>
               <FileName>DataBase.h</FileName>
               <FileType>5</FileType>
@@ -439,6 +459,11 @@
               <FileName>W25Q16JVSNIQ_driver.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\inc\W25Q16JVSNIQ_driver.h</FilePath>
+            </File>
+            <File>
+              <FileName>UI.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\UI.h</FilePath>
             </File>
           </Files>
         </Group>
