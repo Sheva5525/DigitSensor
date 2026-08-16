@@ -1,4 +1,7 @@
 #include "iPawn.h"
+#include "Sensors.h"
+#include "DigitResistor.h"
+#include "AD8402_driver.h"
 #include "amx.h"
 #include "DataBase.h"
 #include "FreeRTOS.h"
@@ -19,8 +22,7 @@ static cell AMXAPI native_SetLedState(AMX *amx, const cell *params)
 {
     (void)amx;
 
-    cell *arg_ptr = (cell *)params[1];
-    int state = (int)(*arg_ptr); 
+    int state = (int)params[1];
     
     if (state == 1) {
         GPIOC->BSRR = (1UL << (13 + 16)); // Зажечь LED
@@ -34,8 +36,7 @@ static cell AMXAPI native_Delay(AMX *amx, const cell *params)
 {
     (void)amx;
 
-    cell *arg_ptr = (cell *)params[1];
-    uint32_t ms = (uint32_t)(*arg_ptr); 
+    uint32_t ms = (uint32_t)params[1];
     
     if (ms > 0) {
         vTaskDelay(pdMS_TO_TICKS(ms));
@@ -44,10 +45,100 @@ static cell AMXAPI native_Delay(AMX *amx, const cell *params)
     return 0;
 }
 
+DigitalRes hard = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+DigitalRes soft = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+
+static cell AMXAPI native_SetOhm(AMX *amx, const cell *params)
+{
+    (void)amx;
+
+    // Статические переменные для хранения последних применённых значений
+    static int32_t  last_target_ohm = -1;
+    static uint32_t last_step1 = 0xFFFFFFFF;
+    static uint32_t last_step2 = 0xFFFFFFFF;
+
+    uint32_t target_ohm = (uint32_t)params[1];
+
+    // Если сопротивление не изменилось, ничего не делаем
+    if ((int32_t)target_ohm == last_target_ohm)
+        return 0;
+
+    // Цифровые резисторы (параметры фиксированы)
+    DigitalRes hard = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+    DigitalRes soft = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+
+    uint32_t best_step1 = 0;
+    uint32_t best_step2 = 0;
+
+    // Вычисляем оптимальные шаги
+    FindOptimalSteps(&hard, &soft, target_ohm, &best_step1, &best_step2);
+
+    // Применяем шаги к AD8402
+    AD8402_Write(0, best_step1);
+    AD8402_Write(1, best_step2);
+
+    // Обновляем кэш последних применённых значений
+    last_target_ohm = target_ohm;
+    last_step1 = best_step1;
+    last_step2 = best_step2;
+
+    // Обновляем базу данных
+    DB_Value_t val_target, val0, val1;
+    bool has_target = DB_Select(2, &val_target);
+    bool has0 = DB_Select(0, &val0);
+    bool has1 = DB_Select(1, &val1);
+
+    // Если записи не было, создаём с параметрами по умолчанию
+    if (!has_target) {
+        val_target = (DB_Value_t){
+            .is_readable = true,
+            .save_to_flash = true,
+            .type = 0x0,
+            .min = 50,
+            .max = 500,
+            .step = 1,
+            .is_enabled = false
+        };
+    }
+    val_target.raw_data = target_ohm;
+    DB_Insert(2, val_target);
+
+    if (!has0) {
+        val0 = (DB_Value_t){
+            .is_readable = true,
+            .save_to_flash = true,
+            .type = 0x0,
+            .min = 0,
+            .max = 255,
+            .step = 1,
+            .is_enabled = false
+        };
+    }
+    val0.raw_data = best_step1;
+    DB_Insert(0, val0);
+
+    if (!has1) {
+        val1 = (DB_Value_t){
+            .is_readable = true,
+            .save_to_flash = true,
+            .type = 0x0,
+            .min = 0,
+            .max = 255,
+            .step = 1,
+            .is_enabled = false
+        };
+    }
+    val1.raw_data = best_step2;
+    DB_Insert(1, val1);
+
+    return 0;
+}
+
 static const AMX_NATIVE_INFO stm32_natives[] =
 {
     { "SetLedState", native_SetLedState },
     { "Delay", native_Delay },
+    { "SetOhm", native_SetOhm },
     { NULL, NULL }
 };
 

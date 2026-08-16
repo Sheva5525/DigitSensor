@@ -30,4 +30,5 @@ def send_file_ymodem(port_name, baud_rate, file_path):
     ser.close()
 
 if __name__ == "__main__":
-    send_file_ymodem(port_name="COM5", baud_rate=115200, file_path="led_down.amx")
+    send_file_ymodem(port_name="COM5", baud_rate=115200, file_path="ohms_20.amx")
+    
