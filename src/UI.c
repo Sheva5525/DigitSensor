@@ -33,7 +33,31 @@ static Menu_t settings_menu = {
 static MenuItem_t main_menu_items[MENU_SIZE] = {
     { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
     { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } }
+    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 2",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 3",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 4",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 5",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 6",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 7",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 8",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 9",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 10",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 11",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 12",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 13",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 14",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 15",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 16",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 17",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 18",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 19",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 20",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 21",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 22",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 23",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
+    { .name = "Channel 24",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 25",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } }
 };
 
 static Menu_t main_menu = {
@@ -47,13 +71,19 @@ UiState_t ui = {
     .current_menu = &main_menu,
     .cursor = 0,
     .force_refresh = true,
-    .temp_value = 0
+    .temp_value = 0,
+    .scroll_offset = 0   // новое поле
 };
 
 ucg_t ucg;
 
 // Глобальная статическая переменная для хранения полной записи во время редактирования
 static DB_Value_t current_edit_value;
+
+// Параметры отображения списка
+#define UI_START_Y   38
+#define UI_STEP_Y    14
+static uint8_t visible_rows = 0; // будет вычислено в UI_Init
 
 // --- СТЕК ИСТОРИИ И СОСТОЯНИЕ ---
 static MenuHistory_t history[MAX_MENU_DEPTH];
@@ -65,6 +95,9 @@ static uint8_t history_depth = 0;
 #define COLOR_RED     255, 0, 0   // В BGR первый аргумент (R) зажжет КРАСНЫЙ
 #define COLOR_GREY    180, 180, 180
 #define COLOR_BG_LINE 220, 220, 220 // Серый цвет для выделенной строки
+
+// Прототип функции обновления прокрутки
+static void UI_UpdateScroll(void);
 
 // Функция добавления текущего экрана в историю перед переходом вглубь
 static void UI_PushHistory(void) {
@@ -81,7 +114,25 @@ static void UI_PopHistory(void) {
         history_depth--;
         ui.current_menu = history[history_depth].menu;
         ui.cursor = history[history_depth].cursor;
+        UI_UpdateScroll();  // обновляем прокрутку после восстановления курсора
         ui.force_refresh = true;
+    }
+}
+
+// Функция обновления смещения прокрутки на основе текущего курсора
+static void UI_UpdateScroll(void) {
+    if (visible_rows == 0) return; // если ещё не инициализировано
+    uint8_t max_offset = (ui.current_menu->size > visible_rows) ? (ui.current_menu->size - visible_rows) : 0;
+    uint8_t new_offset = ui.scroll_offset;
+    if (ui.cursor < new_offset) {
+        new_offset = ui.cursor;
+    } else if (ui.cursor >= new_offset + visible_rows) {
+        new_offset = ui.cursor - visible_rows + 1;
+    }
+    if (new_offset > max_offset) new_offset = max_offset;
+    if (new_offset != ui.scroll_offset) {
+        ui.scroll_offset = new_offset;
+        ui.force_refresh = true; // при изменении окна делаем полную перерисовку
     }
 }
 
@@ -99,6 +150,7 @@ void UI_ProcessNavigate(int8_t direction) {
             // Пропускаем неактивные (серые) пункты меню
             if (ui.current_menu->items[check_pos].is_enabled) {
                 ui.cursor = check_pos;
+                UI_UpdateScroll();  // обновляем прокрутку после изменения курсора
                 return;
             }
         }
@@ -127,7 +179,8 @@ void UI_ProcessAction(void) {
             case ITEM_SUBMENU:
                 UI_PushHistory();
                 ui.current_menu = item->load.next_menu;
-                ui.cursor = 0; // Начинаем с верхнего пункта (< Back)
+                ui.cursor = 0;
+                UI_UpdateScroll();  // обновляем прокрутку после смены меню
                 ui.force_refresh = true;
                 break;
             case ITEM_PARAM_INT: {
@@ -162,9 +215,9 @@ void UI_ProcessAction(void) {
         // Выходим из режима редактирования, сохраняем temp_value в БД
         current_edit_value.raw_data = ui.temp_value;   // обновляем только значение
         if (DB_Insert(item->load.int_param.db_index, current_edit_value)) {
-            // Успешно сохранено (можно добавить отладочный вывод)
+            // Успешно сохранено
         } else {
-            // Ошибка записи – можно как-то обработать
+            // Ошибка записи
         }
         ui.mode = UI_MODE_NAVIGATE;
     }
@@ -174,6 +227,7 @@ void vGuiTask(void *pvParameters)
 {
     uint8_t last_cursor = 255;
     UiMode_t last_mode = UI_MODE_NAVIGATE;
+    uint8_t last_scroll_offset = 255; // чтобы первый раз сработало обновление
     int32_t last_param_values[MENU_SIZE]; 
     
     // Буфер в статической памяти для защиты стека FreeRTOS
@@ -197,7 +251,7 @@ void vGuiTask(void *pvParameters)
             is_forced = true;
             ui.force_refresh = false; // Сбрасываем сразу, событие сохранено в is_forced
 
-            // 1. Ручная заливка фона в БЕЛЫЙ через Индекс 0
+            // 1. Ручная заливка фона в БЕЛЫЙ
             ucg_SetColor(&ucg, 0, COLOR_WHITE); 
             ucg_DrawBox(&ucg, 0, 0, ucg_GetWidth(&ucg), ucg_GetHeight(&ucg));
 
@@ -210,6 +264,8 @@ void vGuiTask(void *pvParameters)
             ucg_DrawString(&ucg, 16, 20, 0, ui.current_menu->title);
 
             last_cursor = 255; 
+            last_mode = UI_MODE_NAVIGATE;
+            last_scroll_offset = 255; // форсируем перерисовку всех строк
             for(int k = 0; k < MENU_SIZE; k++) last_param_values[k] = -999999;
         }
 
@@ -217,11 +273,14 @@ void vGuiTask(void *pvParameters)
         vTaskSuspendAll();
         uint8_t current_ui_cursor = ui.cursor;
         UiMode_t current_ui_mode = ui.mode;
+        uint8_t current_scroll_offset = ui.scroll_offset;
         xTaskResumeAll();
 
-        // Экран требует отрисовки если: сменился курсор, сменился режим или была команда force_refresh
+        // Экран требует отрисовки если: сменился курсор, сменился режим, сменился скролл или была команда force_refresh
+        bool scroll_changed = (current_scroll_offset != last_scroll_offset);
         bool need_redraw = (current_ui_cursor != last_cursor) || 
                            (current_ui_mode != last_mode) || 
+                           scroll_changed ||
                            is_forced;
         
         // Массив измененных параметров для точечного обновления экрана
@@ -230,7 +289,6 @@ void vGuiTask(void *pvParameters)
         // ВСЕГДА опрашиваем базу данных для обновления кэша параметров
         for (uint8_t i = 0; i < ui.current_menu->size; i++) {
             if (ui.current_menu->items[i].type == ITEM_PARAM_INT) {
-                // Если это редактируемый пункт и мы в режиме EDIT, работаем с temp_value
                 if (current_ui_mode == UI_MODE_EDIT && i == current_ui_cursor) {
                     if (ui.temp_value != last_param_values[i]) {
                         need_redraw = true;
@@ -258,18 +316,22 @@ void vGuiTask(void *pvParameters)
         }
 
         if (need_redraw) {
-            uint16_t start_y = 38; 
-            uint16_t step_y = 14;  
+            // Определяем видимый диапазон
+            uint8_t visible_start = current_scroll_offset;
+            uint8_t visible_end = current_scroll_offset + visible_rows;
+            if (visible_end > ui.current_menu->size) {
+                visible_end = ui.current_menu->size;
+            }
 
-            // Флаг определяет, была ли только что выполнена полная очистка экрана.
-            bool is_first_render = (last_cursor == 255);
+            // Флаг первой отрисовки после force_refresh
+            bool is_first_render = (last_cursor == 255) || scroll_changed; // если скролл изменился, считаем все строки изменёнными
 
-            for (uint8_t i = 0; i < ui.current_menu->size; i++) {
-                // Строка ОБЯЗАНА обновиться, если:
-                // 1. Это первый рендер после force_refresh
-                // 2. Строка является текущим курсором
-                // 3. Строка являлась предыдущим курсором (нужно стереть с неё выделение)
-                // 4. Значение этого параметра в БД изменилось при прокрутке энкодера
+            for (uint8_t i = visible_start; i < visible_end; i++) {
+                // Строка должна обновиться, если:
+                // - это первый рендер (после force_refresh или смены скролла)
+                // - строка является текущим курсором
+                // - строка была предыдущим курсором
+                // - значение параметра этой строки изменилось
                 bool row_changed = is_first_render ||
                                    (i == current_ui_cursor) || 
                                    (i == last_cursor) || 
@@ -280,29 +342,28 @@ void vGuiTask(void *pvParameters)
                     MenuItem_t item = ui.current_menu->items[i];
                     xTaskResumeAll();
 
-                    uint16_t row_y = start_y + (i * step_y);
+                    uint16_t row_y = UI_START_Y + (i - visible_start) * UI_STEP_Y;
 
-                    // --- ШАГ 1: ОЧИСТКА / СТИРАНИЕ СТРОКИ ПЕРЕД ОТРИСОВКОЙ ---
+                    // --- ОЧИСТКА / СТИРАНИЕ СТРОКИ ---
                     if (i == current_ui_cursor) {
                         ucg_SetColor(&ucg, 0, COLOR_BG_LINE); // Активный пункт -> СЕРЫЙ фон
                     } else {
-                        ucg_SetColor(&ucg, 0, COLOR_WHITE);   // Все остальные -> БЕЛЫЙ фон
+                        ucg_SetColor(&ucg, 0, COLOR_WHITE);   // Остальные -> БЕЛЫЙ фон
                     }
                     ucg_DrawBox(&ucg, 12, row_y - 9, ucg_GetWidth(&ucg) - 24, 13);
 
-                    // --- ШАГ 2: ОТРИСОВКА НАЗВАНИЯ СЛЕВА ---
+                    // --- ОТРИСОВКА НАЗВАНИЯ ---
                     if (!item.is_enabled) {
-                        ucg_SetColor(&ucg, 0, COLOR_GREY); // Серый для заблокированных
+                        ucg_SetColor(&ucg, 0, COLOR_GREY);
                     } else {
-                        ucg_SetColor(&ucg, 0, COLOR_BLACK); // Чёрный для обычных
+                        ucg_SetColor(&ucg, 0, COLOR_BLACK);
                     }
                     ucg_DrawString(&ucg, 16, row_y, 0, item.name);
 
-                    // --- ШАГ 3: ОТРИСОВКА ЗНАЧЕНИЯ СПРАВА ---
+                    // --- ОТРИСОВКА ЗНАЧЕНИЯ ---
                     if (item.type == ITEM_PARAM_INT)
                     {
                         int32_t display_value;
-                        // Для редактируемого пункта показываем temp_value, иначе читаем из БД
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT) {
                             display_value = ui.temp_value;
                         } else {
@@ -317,7 +378,6 @@ void vGuiTask(void *pvParameters)
                         sprintf(val_str, "%4d", display_value);
 
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT) {
-                            // Если редактируем — рисуем белое окошко внутри серой полосы
                             ucg_SetColor(&ucg, 0, COLOR_WHITE);
                             ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 28, 13);
                         }
@@ -329,11 +389,21 @@ void vGuiTask(void *pvParameters)
                     }
                 }
             }
-            
+
+            // Если элементов меньше, чем видимых строк, очищаем оставшиеся строки
+            if (visible_end < current_scroll_offset + visible_rows) {
+                for (uint8_t i = visible_end; i < current_scroll_offset + visible_rows; i++) {
+                    uint16_t row_y = UI_START_Y + (i - current_scroll_offset) * UI_STEP_Y;
+                    ucg_SetColor(&ucg, 0, COLOR_WHITE);
+                    ucg_DrawBox(&ucg, 12, row_y - 9, ucg_GetWidth(&ucg) - 24, 13);
+                }
+            }
+
             // Фиксируем состояние для следующего кадра
             vTaskSuspendAll();
             last_cursor = current_ui_cursor;
             last_mode = current_ui_mode;
+            last_scroll_offset = current_scroll_offset;
             xTaskResumeAll();
         }
 
@@ -345,6 +415,9 @@ void UI_Init()
 {
     ucg_Init(&ucg, ucg_dev_st7735_18x128x160, ucg_ext_st7735_18, ucg_com_stm32_spi_cb);
     ucg_SetFontMode(&ucg, UCG_FONT_MODE_TRANSPARENT);
-    // Подключаем ваш шрифт
     ucg_SetFont(&ucg, ucg_font_6x10);
+    
+    // Вычисляем количество видимых строк
+    visible_rows = (ucg_GetHeight(&ucg) - UI_START_Y) / UI_STEP_Y;
+    if (visible_rows > MENU_SIZE) visible_rows = MENU_SIZE;
 }

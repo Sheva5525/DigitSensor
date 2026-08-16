@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #define MAX_MENU_DEPTH 6  // Максимальная глубина вложенности меню
-#define MENU_SIZE      3
+#define MENU_SIZE      28
 
 // Режимы работы интерфейса и энкодера
 typedef enum {
@@ -63,6 +63,7 @@ typedef struct {
     uint8_t cursor;
     bool force_refresh;
     int32_t temp_value;
+    uint8_t scroll_offset;
 } UiState_t;
 
 extern UiState_t ui;
