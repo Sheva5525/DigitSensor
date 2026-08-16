@@ -18,6 +18,7 @@
 
 #define configPRIO_BITS                         4
 
+#define INCLUDE_vTaskSuspend    1
 #define INCLUDE_xTaskGetSchedulerState    1
 
 #define configUSE_TIMERS                    1

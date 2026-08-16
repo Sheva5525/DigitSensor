@@ -74,6 +74,7 @@ void vReceiveTask(void *pvParameters)
     vTaskDelete(NULL);
 }
 
+static bool is_pawn_suspended = false;
 
 void vPawnTask(void *pvParameters)
 {
@@ -136,24 +137,55 @@ void vEncoderPollTask(void *pvParameters)
 
 void vResistorControlTask(void *pvParameters)
 {
-    uint32_t step1 = 0, step2 = 0;
-    int16_t target_ohm;
-    DB_Value_t value1;
-    DB_Value_t value2;
+    (void)pvParameters;
+    uint32_t step1 = 0xFFFFFFFF, step2 = 0xFFFFFFFF; 
+    DB_Value_t value1 = {0}, value2 = {0};
+    DB_Value_t main_switch = {0};
 
     for (;;)
     {
-    
-        DB_Select(1, &value1);
-        DB_Select(2, &value2);
+        DB_Select(0, &main_switch);
 
-        if (value1.raw_data != step1)
-            AD8402_Write(0, value1.raw_data);
-        if (value2.raw_data != step2)
-            AD8402_Write(1, value2.raw_data);
-        step1 = value1.raw_data;
-        step2 = value2.raw_data;
-        vTaskDelay(pdMS_TO_TICKS(50));
+        if (main_switch.raw_data == 0)
+        {
+            if (step1 != 0 || step2 != 0) {
+                AD8402_Write(0, 0);
+                AD8402_Write(1, 0);
+                step1 = 0; step2 = 0;
+            }
+
+            if (!is_pawn_suspended && xPawnTaskHandle != NULL)
+            {
+                vTaskSuspend(xPawnTaskHandle);
+                is_pawn_suspended = true;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(100));
+        }
+        else
+        {
+            if (is_pawn_suspended && xPawnTaskHandle != NULL)
+            {
+                vTaskResume(xPawnTaskHandle);
+                is_pawn_suspended = false;
+            }
+
+            DB_Select(1, &value1);
+            DB_Select(2, &value2);
+
+            if (value1.raw_data != step1)
+            {
+                AD8402_Write(0, value1.raw_data);
+                step1 = value1.raw_data;
+            }
+            if (value2.raw_data != step2)
+            {
+                AD8402_Write(1, value2.raw_data);
+                step2 = value2.raw_data;
+            }
+
+            vTaskDelay(pdMS_TO_TICKS(50));
+        }
     }
 }
 

@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #define MAX_MENU_DEPTH 6  // Максимальная глубина вложенности меню
-#define MENU_SIZE      5
+#define MENU_SIZE      3
 
 // Режимы работы интерфейса и энкодера
 typedef enum {
