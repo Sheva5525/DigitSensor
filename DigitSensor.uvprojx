@@ -341,7 +341,7 @@
               <MiscControls></MiscControls>
               <Define>AMX_ANSIONLY</Define>
               <Undefine></Undefine>
-              <IncludePath>.\inc;.\FreeRTOS\inc;.\LittleFS\inc;.\Pawn;.\ymodem;.\Ucglib</IncludePath>
+              <IncludePath>.\inc;.\ThirdParty\FreeRTOS\inc;.\ThirdParty\LittleFS\inc;.\ThirdParty\Pawn;.\ThirdParty\ymodem;.\ThirdParty\Ucglib</IncludePath>
             </VariousControls>
           </Cads>
           <Aads>
@@ -503,42 +503,42 @@
             <File>
               <FileName>event_groups.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\event_groups.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\event_groups.c</FilePath>
             </File>
             <File>
               <FileName>heap_4.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\heap_4.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\heap_4.c</FilePath>
             </File>
             <File>
               <FileName>list.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\list.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\list.c</FilePath>
             </File>
             <File>
               <FileName>port.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\port.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\port.c</FilePath>
             </File>
             <File>
               <FileName>queue.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\queue.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\queue.c</FilePath>
             </File>
             <File>
               <FileName>stream_buffer.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\stream_buffer.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\stream_buffer.c</FilePath>
             </File>
             <File>
               <FileName>tasks.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\tasks.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\tasks.c</FilePath>
             </File>
             <File>
               <FileName>timers.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\FreeRTOS\src\timers.c</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\src\timers.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -548,107 +548,107 @@
             <File>
               <FileName>atomic.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\atomic.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\atomic.h</FilePath>
             </File>
             <File>
               <FileName>croutine.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\croutine.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\croutine.h</FilePath>
             </File>
             <File>
               <FileName>deprecated_definitions.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\deprecated_definitions.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\deprecated_definitions.h</FilePath>
             </File>
             <File>
               <FileName>event_groups.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\event_groups.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\event_groups.h</FilePath>
             </File>
             <File>
               <FileName>FreeRTOS.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\FreeRTOS.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\FreeRTOS.h</FilePath>
             </File>
             <File>
               <FileName>FreeRTOSConfig.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\FreeRTOSConfig.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\FreeRTOSConfig.h</FilePath>
             </File>
             <File>
               <FileName>list.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\list.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\list.h</FilePath>
             </File>
             <File>
               <FileName>message_buffer.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\message_buffer.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\message_buffer.h</FilePath>
             </File>
             <File>
               <FileName>mpu_syscall_numbers.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\mpu_syscall_numbers.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\mpu_syscall_numbers.h</FilePath>
             </File>
             <File>
               <FileName>mpu_wrappers.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\mpu_wrappers.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\mpu_wrappers.h</FilePath>
             </File>
             <File>
               <FileName>portable.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\portable.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\portable.h</FilePath>
             </File>
             <File>
               <FileName>portmacro.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\portmacro.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\portmacro.h</FilePath>
             </File>
             <File>
               <FileName>projdefs.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\projdefs.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\projdefs.h</FilePath>
             </File>
             <File>
               <FileName>mpu_prototypes.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\mpu_prototypes.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\mpu_prototypes.h</FilePath>
             </File>
             <File>
               <FileName>queue.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\queue.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\queue.h</FilePath>
             </File>
             <File>
               <FileName>semphr.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\semphr.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\semphr.h</FilePath>
             </File>
             <File>
               <FileName>stack_macros.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\stack_macros.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\stack_macros.h</FilePath>
             </File>
             <File>
               <FileName>StackMacros.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\StackMacros.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\StackMacros.h</FilePath>
             </File>
             <File>
               <FileName>stream_buffer.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\stream_buffer.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\stream_buffer.h</FilePath>
             </File>
             <File>
               <FileName>task.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\task.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\task.h</FilePath>
             </File>
             <File>
               <FileName>timers.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\FreeRTOS\inc\timers.h</FilePath>
+              <FilePath>.\ThirdParty\FreeRTOS\inc\timers.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -658,12 +658,12 @@
             <File>
               <FileName>lfs.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\LittleFS\src\lfs.c</FilePath>
+              <FilePath>.\ThirdParty\LittleFS\src\lfs.c</FilePath>
             </File>
             <File>
               <FileName>lfs_util.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\LittleFS\src\lfs_util.c</FilePath>
+              <FilePath>.\ThirdParty\LittleFS\src\lfs_util.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -673,12 +673,12 @@
             <File>
               <FileName>lfs_util.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\LittleFS\inc\lfs_util.h</FilePath>
+              <FilePath>.\ThirdParty\LittleFS\inc\lfs_util.h</FilePath>
             </File>
             <File>
               <FileName>lfs.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\LittleFS\inc\lfs.h</FilePath>
+              <FilePath>.\ThirdParty\LittleFS\inc\lfs.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -688,17 +688,17 @@
             <File>
               <FileName>amx.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Pawn\amx.c</FilePath>
+              <FilePath>.\ThirdParty\Pawn\amx.c</FilePath>
             </File>
             <File>
               <FileName>amx.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\Pawn\amx.h</FilePath>
+              <FilePath>.\ThirdParty\Pawn\amx.h</FilePath>
             </File>
             <File>
               <FileName>amxcore.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Pawn\amxcore.c</FilePath>
+              <FilePath>.\ThirdParty\Pawn\amxcore.c</FilePath>
             </File>
           </Files>
         </Group>
@@ -708,12 +708,12 @@
             <File>
               <FileName>ymodem.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\ymodem\ymodem.c</FilePath>
+              <FilePath>.\ThirdParty\ymodem\ymodem.c</FilePath>
             </File>
             <File>
               <FileName>ymodem.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\ymodem\ymodem.h</FilePath>
+              <FilePath>.\ThirdParty\ymodem\ymodem.h</FilePath>
             </File>
           </Files>
         </Group>
@@ -723,92 +723,92 @@
             <File>
               <FileName>ucg.h</FileName>
               <FileType>5</FileType>
-              <FilePath>.\Ucglib\ucg.h</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg.h</FilePath>
             </File>
             <File>
               <FileName>ucg_box.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_box.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_box.c</FilePath>
             </File>
             <File>
               <FileName>ucg_circle.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_circle.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_circle.c</FilePath>
             </File>
             <File>
               <FileName>ucg_clip.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_clip.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_clip.c</FilePath>
             </File>
             <File>
               <FileName>ucg_com_msg_api.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_com_msg_api.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_com_msg_api.c</FilePath>
             </File>
             <File>
               <FileName>ucg_dev_default_cb.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_dev_default_cb.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_dev_default_cb.c</FilePath>
             </File>
             <File>
               <FileName>ucg_dev_ic_st7735.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_dev_ic_st7735.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_dev_ic_st7735.c</FilePath>
             </File>
             <File>
               <FileName>ucg_dev_msg_api.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_dev_msg_api.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_dev_msg_api.c</FilePath>
             </File>
             <File>
               <FileName>ucg_dev_tft_128x160_st7735.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_dev_tft_128x160_st7735.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_dev_tft_128x160_st7735.c</FilePath>
             </File>
             <File>
               <FileName>ucg_font.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_font.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_font.c</FilePath>
             </File>
             <File>
               <FileName>ucg_init.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_init.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_init.c</FilePath>
             </File>
             <File>
               <FileName>ucg_line.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_line.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_line.c</FilePath>
             </File>
             <File>
               <FileName>ucg_pixel.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_pixel.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_pixel.c</FilePath>
             </File>
             <File>
               <FileName>ucg_polygon.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_polygon.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_polygon.c</FilePath>
             </File>
             <File>
               <FileName>ucg_scale.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_scale.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_scale.c</FilePath>
             </File>
             <File>
               <FileName>ucg_bitmap.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_bitmap.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_bitmap.c</FilePath>
             </File>
             <File>
               <FileName>ucg_ccs.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_ccs.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_ccs.c</FilePath>
             </File>
             <File>
               <FileName>ucg_rotate.c</FileName>
               <FileType>1</FileType>
-              <FilePath>.\Ucglib\ucg_rotate.c</FilePath>
+              <FilePath>.\ThirdParty\Ucglib\ucg_rotate.c</FilePath>
             </File>
           </Files>
         </Group>
