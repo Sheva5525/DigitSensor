@@ -74,16 +74,17 @@ void UART_Delay(uint32_t Delay)
 #define UART_FLUSH_DRREGISTER(handle)  do { volatile uint32_t tmpreg = USART1->SR; tmpreg = USART1->DR; (void)tmpreg; } while(0)
 #define UART_CLEAR_IT(handle, flag)    do { volatile uint32_t tmpreg = USART1->SR; tmpreg = USART1->DR; (void)tmpreg; } while(0)
 
-/* Чистая реализация CRC16_Calculate (алгоритм CRC-16 XMODEM) */
 uint32_t CRC16_Calculate(int *handle, uint32_t *p_buffer, uint32_t length)
 {
     uint8_t *ptr = (uint8_t*)p_buffer;
     uint16_t crc = 0;
     int count = (int)length;
     
-    while (--count >= 0) {
+    while (--count >= 0)
+    {
         uint32_t tmp = crc ^ (*ptr++ << 8);
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 8; i++)
+        {
             if (tmp & 0x8000) tmp = (tmp << 1) ^ 0x1021;
             else tmp <<= 1;
         }
@@ -114,17 +115,22 @@ void Int2Str(uint8_t *p_str, uint32_t intnum)
 uint32_t Str2Int(uint8_t *p_inputstr, uint32_t *p_intnum)
 {
     uint32_t i = 0, res = 0;
-    if (p_inputstr[0] == '0' && (p_inputstr[1] == 'x' || p_inputstr[1] == 'X')) {
+    if (p_inputstr[0] == '0' && (p_inputstr[1] == 'x' || p_inputstr[1] == 'X'))
+    {
         i = 2;
-        while (p_inputstr[i] != '\0') {
+        while (p_inputstr[i] != '\0')
+        {
             if (p_inputstr[i] >= '0' && p_inputstr[i] <= '9') res = res * 16 + (p_inputstr[i] - '0');
             else if (p_inputstr[i] >= 'A' && p_inputstr[i] <= 'F') res = res * 16 + (p_inputstr[i] - 'A' + 10);
             else if (p_inputstr[i] >= 'a' && p_inputstr[i] <= 'f') res = res * 16 + (p_inputstr[i] - 'a' + 10);
             else return 0;
             i++;
         }
-    } else {
-        while (p_inputstr[i] != '\0') {
+    }
+    else
+    {
+        while (p_inputstr[i] != '\0')
+        {
             if (p_inputstr[i] >= '0' && p_inputstr[i] <= '9') res = res * 10 + (p_inputstr[i] - '0');
             else return 0;
             i++;

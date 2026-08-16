@@ -209,26 +209,6 @@ void Encoder_Init(void)
     TIM4->CR1  |= TIM_CR1_CEN; // Включаем таймер
 }
 
-extern TaskHandle_t xEncoderButtonTaskHandle;
-
-void EXTI1_IRQHandler(void)
-{
-    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-
-    // Проверяем, что прерывание случилось именно по линии EXTI1
-    if (EXTI->PR & EXTI_PR_PR1) {
-        EXTI->PR = EXTI_PR_PR1; // Сбрасываем флаг прерывания записью единицы
-
-        if (xEncoderButtonTaskHandle != NULL) {
-            // Разбудить задачу обработки кнопки
-            vTaskNotifyGiveFromISR(xEncoderButtonTaskHandle, &xHigherPriorityTaskWoken);
-        }
-    }
-
-    // Переключаем контекст, если разбуженная задача имеет более высокий приоритет
-    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
-}
-
 void SPI2_Init(void)
 {
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
@@ -288,19 +268,38 @@ void USART1_IRQHandler(void)
     uint32_t sr = USART1->SR; // Читаем регистр статуса один раз
 
     // Проверяем, пришли ли данные в приемный регистр (RXNE)
-    if (sr & USART_SR_RXNE) {
+    if (sr & USART_SR_RXNE)
+    {
         uint8_t byte = (uint8_t)USART1->DR;
         // Передаем байт в очередь FreeRTOS
         xQueueSendFromISR(xUartQueue, &byte, &xHigherPriorityTaskWoken);
     }
 
-    // ИСПРАВЛЕНО: Сброс флагов аппаратных ошибок (Overrun, Noise, Frame Error)
-    // Без этого сброса при любой помехе в линии прерывание зависнет в бесконечном вызове
-    if (sr & (USART_SR_ORE | USART_SR_NE | USART_SR_FE)) {
+    if (sr & (USART_SR_ORE | USART_SR_NE | USART_SR_FE))
+    {
         volatile uint32_t dummy = USART1->DR; // Чтение регистра данных очищает флаги ошибок
         (void)dummy;
     }
 
     // Форсируем переключение контекста, если задача приема имеет высокий приоритет
+    portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
+}
+
+extern TaskHandle_t xEncoderButtonTaskHandle;
+
+void EXTI1_IRQHandler(void)
+{
+    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+
+    // Проверяем, что прерывание случилось именно по линии EXTI1
+    if (EXTI->PR & EXTI_PR_PR1)
+    {
+        EXTI->PR = EXTI_PR_PR1; // Сбрасываем флаг прерывания записью единицы
+
+        if (xEncoderButtonTaskHandle != NULL)
+        {
+            vTaskNotifyGiveFromISR(xEncoderButtonTaskHandle, &xHigherPriorityTaskWoken);
+        }
+    }
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }

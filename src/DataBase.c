@@ -27,9 +27,16 @@ bool DB_Init(void)
 // Положить значение в БД. Если его нет - сделается новое
 bool DB_Insert(uint8_t key, DB_Value_t val)
 {
-    if (_db_mutex == NULL) return false;
-    if (xSemaphoreTake(_db_mutex, DB_TIMEOUT_TICKS) != pdTRUE) return false;
-
+    if (_db_mutex == NULL)
+    {
+        return false;
+    }
+    
+    if (xSemaphoreTake(_db_mutex, DB_TIMEOUT_TICKS) != pdTRUE)
+    {
+        return false;
+    }
+    
     int32_t target_index = -1;
 
     for (uint32_t i = 0; i < DB_MAX_ROWS; i++)
@@ -186,11 +193,10 @@ bool DB_ReadFile(uint8_t *buffer, uint32_t max_length, uint32_t *out_length)
         return false;
     }
 
-    // Читаем заголовок
+    // Чтение заголовка
     uint32_t stored_len = 0;
     W25Q16_Read_Data(FILE_START_ADDR, (uint8_t*)&stored_len, sizeof(stored_len));
 
-    // Проверка валидности: если флеш стерта, там будет 0xFFFFFFFF
     if (stored_len == 0xFFFFFFFF || stored_len == 0) {
         xSemaphoreGive(_db_mutex);
         return false;

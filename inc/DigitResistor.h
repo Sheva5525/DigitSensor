@@ -1,6 +1,3 @@
-// --- Модуль Цифрового Резистора (DigitalRes) ---
-
-
 #ifndef DIGITAL_RESISTOR_H
 #define DIGITAL_RESISTOR_H
 
