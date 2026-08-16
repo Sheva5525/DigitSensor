@@ -16,6 +16,7 @@ static Menu_t settings_menu;
 #define IDX_0 0
 #define IDX_1 1
 #define IDX_2 2
+#define IDX_3 3
 
 // --- 1. ПУНКТЫ И СТРУКТУРА МЕНЮ НАСТРОЕК (ВЛОЖЕННОЕ) ---
 static MenuItem_t settings_items[MENU_SIZE] = {
@@ -34,30 +35,7 @@ static MenuItem_t main_menu_items[MENU_SIZE] = {
     { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
     { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
     { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 2",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 3",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 4",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 5",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 6",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 7",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 8",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 9",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 10",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 11",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 12",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 13",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 14",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 15",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 16",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 17",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 18",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 19",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 20",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 21",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 22",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 23",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Channel 24",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
-    { .name = "Channel 25",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } }
+    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_3, 50, 500, 1 } }
 };
 
 static Menu_t main_menu = {
@@ -148,9 +126,9 @@ void UI_ProcessNavigate(int8_t direction) {
             if (check_pos < 0) check_pos = size - 1;
             
             // Пропускаем неактивные (серые) пункты меню
-            if (ui.current_menu->items[check_pos].is_enabled) {
+            if (ui.current_menu->items[check_pos].is_enabled && ui.current_menu->items[check_pos].name != NULL) {
                 ui.cursor = check_pos;
-                UI_UpdateScroll();  // обновляем прокрутку после изменения курсора
+                UI_UpdateScroll();
                 return;
             }
         }
@@ -338,28 +316,35 @@ void vGuiTask(void *pvParameters)
                                    param_changed[i];
 
                 if (row_changed) {
-                    vTaskSuspendAll();
-                    MenuItem_t item = ui.current_menu->items[i];
-                    xTaskResumeAll();
+                        vTaskSuspendAll();
+                        MenuItem_t item = ui.current_menu->items[i];
+                        xTaskResumeAll();
+                        
+                        if (item.name == NULL) {
+                            // Очищаем строку на всякий случай, чтобы не осталось артефактов
+                            uint16_t row_y = UI_START_Y + (i - visible_start) * UI_STEP_Y;
+                            ucg_SetColor(&ucg, 0, COLOR_WHITE);
+                            ucg_DrawBox(&ucg, 12, row_y - 9, ucg_GetWidth(&ucg) - 24, 13);
+                            continue;
+                        }
 
-                    uint16_t row_y = UI_START_Y + (i - visible_start) * UI_STEP_Y;
+                        uint16_t row_y = UI_START_Y + (i - visible_start) * UI_STEP_Y;
 
-                    // --- ОЧИСТКА / СТИРАНИЕ СТРОКИ ---
-                    if (i == current_ui_cursor) {
-                        ucg_SetColor(&ucg, 0, COLOR_BG_LINE); // Активный пункт -> СЕРЫЙ фон
-                    } else {
-                        ucg_SetColor(&ucg, 0, COLOR_WHITE);   // Остальные -> БЕЛЫЙ фон
-                    }
-                    ucg_DrawBox(&ucg, 12, row_y - 9, ucg_GetWidth(&ucg) - 24, 13);
+                        // --- ОЧИСТКА / СТИРАНИЕ СТРОКИ ---
+                        if (i == current_ui_cursor) {
+                            ucg_SetColor(&ucg, 0, COLOR_BG_LINE);
+                        } else {
+                            ucg_SetColor(&ucg, 0, COLOR_WHITE);
+                        }
+                        ucg_DrawBox(&ucg, 12, row_y - 9, ucg_GetWidth(&ucg) - 24, 13);
 
-                    // --- ОТРИСОВКА НАЗВАНИЯ ---
-                    if (!item.is_enabled) {
-                        ucg_SetColor(&ucg, 0, COLOR_GREY);
-                    } else {
-                        ucg_SetColor(&ucg, 0, COLOR_BLACK);
-                    }
-                    ucg_DrawString(&ucg, 16, row_y, 0, item.name);
-
+                        // --- ОТРИСОВКА НАЗВАНИЯ ---
+                        if (!item.is_enabled) {
+                            ucg_SetColor(&ucg, 0, COLOR_GREY);
+                        } else {
+                            ucg_SetColor(&ucg, 0, COLOR_BLACK);
+                        }
+                        ucg_DrawString(&ucg, 16, row_y, 0, item.name);
                     // --- ОТРИСОВКА ЗНАЧЕНИЯ ---
                     if (item.type == ITEM_PARAM_INT)
                     {

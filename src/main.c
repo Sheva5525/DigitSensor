@@ -200,7 +200,8 @@ int main(void)
     DB_Insert(0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0, .type = 0x0 });
     DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1, .type = 0x0 });
     DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 2, .type = 0x0 });
-
+    DB_Insert(3, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0 });
+    
     DB_LoadFromFlash();
 
     TimerHandle_t xDbTimer = xTimerCreate("DbSyncTimer", 
