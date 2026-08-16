@@ -4,6 +4,8 @@
 #include "ucg.h"
 #include "hardware.h"
 #include "UI.h"
+#include "Sensors.h"
+#include "DigitResistor.h"
 #include "AD8402_driver.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -139,16 +141,25 @@ void vResistorControlTask(void *pvParameters)
 {
     (void)pvParameters;
     uint32_t step1 = 0xFFFFFFFF, step2 = 0xFFFFFFFF; 
-    DB_Value_t value1 = {0}, value2 = {0};
-    DB_Value_t main_switch = {0};
+    DB_Value_t value1, value2;
+    DB_Value_t target_ohm;
+    DB_Value_t main_switch;
+    
+    DigitalRes hard = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+    DigitalRes soft = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+    
+    uint32_t best_step1 = 0;
+    uint32_t best_step2 = 0;
 
     for (;;)
     {
-        DB_Select(0, &main_switch);
+        // Читаем Main switch (индекс 3!)
+        DB_Select(3, &main_switch);
 
         if (main_switch.raw_data == 0)
         {
-            if (step1 != 0 || step2 != 0) {
+            if (step1 != 0 || step2 != 0)
+            {
                 AD8402_Write(0, 0);
                 AD8402_Write(1, 0);
                 step1 = 0; step2 = 0;
@@ -170,18 +181,33 @@ void vResistorControlTask(void *pvParameters)
                 is_pawn_suspended = false;
             }
 
-            DB_Select(1, &value1);
-            DB_Select(2, &value2);
+            // Читаем целевое сопротивление (индекс 2)
+            DB_Select(2, &target_ohm);
 
-            if (value1.raw_data != step1)
+            FindOptimalSteps(&hard, &soft, target_ohm.raw_data, &best_step1, &best_step2);
+
+            if (best_step1 != step1)
             {
-                AD8402_Write(0, value1.raw_data);
-                step1 = value1.raw_data;
+                AD8402_Write(0, best_step1);
+                step1 = best_step1;
+                
+                // Получаем полную запись перед изменением или задаём флаги явно
+                if (!DB_Select(0, &value1)) {
+                    value1 = (DB_Value_t){ .is_readable = true, .save_to_flash = true, .type = 0x0 };
+                }
+                value1.raw_data = best_step1;
+                DB_Insert(0, value1);
             }
-            if (value2.raw_data != step2)
+            if (best_step2 != step2)
             {
-                AD8402_Write(1, value2.raw_data);
-                step2 = value2.raw_data;
+                AD8402_Write(1, best_step2);
+                step2 = best_step2;
+                
+                if (!DB_Select(1, &value2)) {
+                    value2 = (DB_Value_t){ .is_readable = true, .save_to_flash = true, .type = 0x0 };
+                }
+                value2.raw_data = best_step2;
+                DB_Insert(1, value2);
             }
 
             vTaskDelay(pdMS_TO_TICKS(50));
@@ -198,9 +224,9 @@ int main(void)
     UI_Init();
     
     DB_Insert(0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0, .type = 0x0 });
-    DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1, .type = 0x0 });
-    DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 2, .type = 0x0 });
-    DB_Insert(3, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0 });
+    DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0, .type = 0x0 });
+    DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0 });
+    DB_Insert(3, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1, .type = 0x0 });
     
     DB_LoadFromFlash();
 

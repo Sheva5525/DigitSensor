@@ -21,7 +21,7 @@ static Menu_t settings_menu;
 // --- 1. ПУНКТЫ И СТРУКТУРА МЕНЮ НАСТРОЕК (ВЛОЖЕННОЕ) ---
 static MenuItem_t settings_items[MENU_SIZE] = {
     { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
-    { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_0, 0, 1, 1 } }
+    { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_3, 0, 1, 1 } }
 };
 
 static Menu_t settings_menu = {
@@ -33,9 +33,9 @@ static Menu_t settings_menu = {
 // --- 2. ПУНКТЫ И СТРУКТУРА ГЛАВНОГО МЕНЮ (КОРНЕВОГО) ---
 static MenuItem_t main_menu_items[MENU_SIZE] = {
     { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
-    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
+    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_0, 0, 255, 1 } },
     { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_1, 0, 255, 1 } },
-    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_3, 50, 500, 1 } }
+    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 50, 500, 1 } }
 };
 
 static Menu_t main_menu = {
