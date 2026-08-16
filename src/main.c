@@ -223,10 +223,10 @@ int main(void)
     DB_Init();
     UI_Init();
     
-    DB_Insert(0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0, .type = 0x0 });
-    DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0, .type = 0x0 });
-    DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0 });
-    DB_Insert(3, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1, .type = 0x0 });
+    DB_Insert(0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = true });
+    DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = true });
+    DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0, .min = 50,  .max = 500, .step = 1, .is_enabled = true });
+    DB_Insert(3, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,  .type = 0x0, .min = 0,   .max = 1,   .step = 1, .is_enabled = true });
     
     DB_LoadFromFlash();
 

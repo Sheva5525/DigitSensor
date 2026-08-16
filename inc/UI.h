@@ -22,7 +22,8 @@ typedef enum {
     ITEM_BACK,            // Кнопка "< Back" (всегда первая в меню)
     ITEM_SUBMENU,         // Переход во вложенную папку меню
     ITEM_PARAM_INT,       // Целочисленный параметр (изменение в белом окошке)
-    ITEM_CUSTOM_PAGE      // Переход на кастомный экран (LittleFS и т.д.)
+    ITEM_CUSTOM_PAGE,     // Переход на кастомный экран (LittleFS и т.д.)
+    ITEM_LABEL
 } MenuItemType_t;
 
 // Структура элемента меню

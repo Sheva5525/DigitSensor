@@ -38,10 +38,14 @@ extern DB_File_t g_receivedFile;
 
 typedef struct
 {
-    bool is_readable;     
-    bool save_to_flash;   
-    int32_t raw_data;     
-    DB_ValueType_t type;  
+    bool is_readable;
+    bool save_to_flash;
+    int32_t raw_data;
+    DB_ValueType_t type;
+    int32_t min;
+    int32_t max;
+    int32_t step;
+    bool is_enabled;
 } DB_Value_t;
 
 typedef struct
