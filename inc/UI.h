@@ -62,6 +62,7 @@ typedef struct {
     Menu_t *current_menu;
     uint8_t cursor;
     bool force_refresh;
+    int32_t temp_value;
 } UiState_t;
 
 extern UiState_t ui;

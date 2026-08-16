@@ -1,11 +1,14 @@
 #include "UI.h"
 #include "DataBase.h"
 #include <stdio.h>
+
 // Реальные переменные для параметров меню (в будущем они могут уйти в DB.c)
 static int32_t param_brightness = 50;
 static int32_t param_volume     = 20;
 static int32_t param_contrast   = 80;
+
 extern int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8_t *data);
+
 // Объявляем меню заранее, чтобы они могли ссылаться друг на друга
 static Menu_t main_menu;
 static Menu_t settings_menu;
@@ -18,7 +21,6 @@ static Menu_t settings_menu;
 static MenuItem_t settings_items[MENU_SIZE] = {
     { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
     { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_0, 0, 1, 1 } }
-    
 };
 
 static Menu_t settings_menu = {
@@ -39,21 +41,23 @@ static Menu_t main_menu = {
     .items = main_menu_items,
     .size = MENU_SIZE
 };
+
 UiState_t ui = {
     .mode = UI_MODE_NAVIGATE,
-    .current_menu = &main_menu, // Ссылка железно зафиксирована
+    .current_menu = &main_menu,
     .cursor = 0,
-    .force_refresh = true
+    .force_refresh = true,
+    .temp_value = 0
 };
 
 ucg_t ucg;
 
+// Глобальная статическая переменная для хранения полной записи во время редактирования
+static DB_Value_t current_edit_value;
 
 // --- СТЕК ИСТОРИИ И СОСТОЯНИЕ ---
-UiState_t ui;
 static MenuHistory_t history[MAX_MENU_DEPTH];
 static uint8_t history_depth = 0;
-
 
 // Цветовые константы для BGR-матрицы дисплея
 #define COLOR_WHITE   255, 255, 255
@@ -102,16 +106,12 @@ void UI_ProcessNavigate(int8_t direction) {
     else if (ui.mode == UI_MODE_EDIT) {
         MenuItem_t *item = &ui.current_menu->items[ui.cursor];
         
-        DB_Value_t value;
-        DB_Select(item->load.int_param.db_index, &value);
-
-        value.raw_data += direction * item->load.int_param.step;
+        // Изменяем временное значение (не пишем в БД!)
+        ui.temp_value += direction * item->load.int_param.step;
         
-        if (value.raw_data < item->load.int_param.min) value.raw_data = item->load.int_param.min;
-        if (value.raw_data > item->load.int_param.max) value.raw_data = item->load.int_param.max;
-        
-        // Пишет строго в ОЗУ, флаг save_to_flash не портится
-        DB_Insert(item->load.int_param.db_index, value); 
+        // Проверка границ
+        if (ui.temp_value < item->load.int_param.min) ui.temp_value = item->load.int_param.min;
+        if (ui.temp_value > item->load.int_param.max) ui.temp_value = item->load.int_param.max;
     }
 }
 
@@ -130,9 +130,25 @@ void UI_ProcessAction(void) {
                 ui.cursor = 0; // Начинаем с верхнего пункта (< Back)
                 ui.force_refresh = true;
                 break;
-            case ITEM_PARAM_INT:
-                ui.mode = UI_MODE_EDIT; // Переходим в режим редактирования
+            case ITEM_PARAM_INT: {
+                // Читаем полную запись из БД
+                DB_Value_t value;
+                if (DB_Select(item->load.int_param.db_index, &value)) {
+                    current_edit_value = value;           // сохраняем все флаги
+                    ui.temp_value = value.raw_data;        // берём текущее значение
+                } else {
+                    // Если записи нет — создаём структуру по умолчанию
+                    current_edit_value = (DB_Value_t){
+                        .is_readable = true,
+                        .save_to_flash = true,
+                        .raw_data = item->load.int_param.min,
+                        .type = 0x0
+                    };
+                    ui.temp_value = current_edit_value.raw_data;
+                }
+                ui.mode = UI_MODE_EDIT;
                 break;
+            }
             case ITEM_CUSTOM_PAGE:
                 if (item->load.custom_init_cb) {
                     UI_PushHistory();
@@ -143,7 +159,14 @@ void UI_ProcessAction(void) {
         }
     } 
     else if (ui.mode == UI_MODE_EDIT) {
-        ui.mode = UI_MODE_NAVIGATE; // Фиксируем значение, выходим в навигацию
+        // Выходим из режима редактирования, сохраняем temp_value в БД
+        current_edit_value.raw_data = ui.temp_value;   // обновляем только значение
+        if (DB_Insert(item->load.int_param.db_index, current_edit_value)) {
+            // Успешно сохранено (можно добавить отладочный вывод)
+        } else {
+            // Ошибка записи – можно как-то обработать
+        }
+        ui.mode = UI_MODE_NAVIGATE;
     }
 }
 
@@ -207,12 +230,28 @@ void vGuiTask(void *pvParameters)
         // ВСЕГДА опрашиваем базу данных для обновления кэша параметров
         for (uint8_t i = 0; i < ui.current_menu->size; i++) {
             if (ui.current_menu->items[i].type == ITEM_PARAM_INT) {
-                DB_Value_t value;
-                if (DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value)) {
-                    if (value.raw_data != last_param_values[i]) {
+                // Если это редактируемый пункт и мы в режиме EDIT, работаем с temp_value
+                if (current_ui_mode == UI_MODE_EDIT && i == current_ui_cursor) {
+                    if (ui.temp_value != last_param_values[i]) {
                         need_redraw = true;
-                        param_changed[i] = true; // Фиксируем, что именно этот параметр изменился
-                        last_param_values[i] = value.raw_data; // Обновляем кэш
+                        param_changed[i] = true;
+                        last_param_values[i] = ui.temp_value;
+                    }
+                } else {
+                    DB_Value_t value;
+                    if (DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value)) {
+                        if (value.raw_data != last_param_values[i]) {
+                            need_redraw = true;
+                            param_changed[i] = true;
+                            last_param_values[i] = value.raw_data;
+                        }
+                    } else {
+                        // Если не удалось прочитать, считаем значение минимальным
+                        if (last_param_values[i] != -999999) {
+                            need_redraw = true;
+                            param_changed[i] = true;
+                            last_param_values[i] = ui.current_menu->items[i].load.int_param.min;
+                        }
                     }
                 }
             }
@@ -262,10 +301,20 @@ void vGuiTask(void *pvParameters)
                     // --- ШАГ 3: ОТРИСОВКА ЗНАЧЕНИЯ СПРАВА ---
                     if (item.type == ITEM_PARAM_INT)
                     {
-                        DB_Value_t value;
-                        DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value);
-                    
-                        sprintf(val_str, "%4d", value.raw_data);
+                        int32_t display_value;
+                        // Для редактируемого пункта показываем temp_value, иначе читаем из БД
+                        if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT) {
+                            display_value = ui.temp_value;
+                        } else {
+                            DB_Value_t value;
+                            if (DB_Select(ui.current_menu->items[i].load.int_param.db_index, &value)) {
+                                display_value = value.raw_data;
+                            } else {
+                                display_value = ui.current_menu->items[i].load.int_param.min;
+                            }
+                        }
+
+                        sprintf(val_str, "%4d", display_value);
 
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT) {
                             // Если редактируем — рисуем белое окошко внутри серой полосы
@@ -292,11 +341,10 @@ void vGuiTask(void *pvParameters)
     }
 }
 
-
 void UI_Init()
 {
     ucg_Init(&ucg, ucg_dev_st7735_18x128x160, ucg_ext_st7735_18, ucg_com_stm32_spi_cb);
     ucg_SetFontMode(&ucg, UCG_FONT_MODE_TRANSPARENT);
-        // Подключаем ваш шрифт
+    // Подключаем ваш шрифт
     ucg_SetFont(&ucg, ucg_font_6x10);
 }
