@@ -141,9 +141,7 @@ void vResistorControlTask(void *pvParameters)
 {
     (void)pvParameters;
     uint32_t step1 = 0xFFFFFFFF, step2 = 0xFFFFFFFF; 
-    DB_Value_t value1, value2;
-    DB_Value_t target_ohm;
-    DB_Value_t main_switch;
+    DB_Value_t value1, value2, target_ohm, main_switch;
     
     DigitalRes hard = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
     DigitalRes soft = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
@@ -151,64 +149,134 @@ void vResistorControlTask(void *pvParameters)
     uint32_t best_step1 = 0;
     uint32_t best_step2 = 0;
 
+    // Переменные для отслеживания последних применённых значений
+    int32_t last_applied_target = -1;
+    int32_t last_applied_value1 = -1;
+    int32_t last_applied_value2 = -1;
+
     for (;;)
     {
-        // Читаем Main switch (индекс 3!)
-        DB_Select(3, &main_switch);
+        // Читаем главный выключатель (индекс 3)
+        if (!DB_Select(3, &main_switch)) {
+            main_switch.raw_data = 0;
+        }
 
-        if (main_switch.raw_data == 0)
-        {
-            if (step1 != 0 || step2 != 0)
-            {
-                AD8402_Write(0, 0);
-                AD8402_Write(1, 0);
-                step1 = 0; step2 = 0;
+        // Определяем, разрешено ли ручное редактирование (main_switch == 0)
+        bool edit_enabled = (main_switch.raw_data == 0);
+
+        // Обновляем флаг is_enabled для параметров 0,1,2 в БД
+        for (uint8_t key = 0; key <= 2; key++) {
+            DB_Value_t tmp;
+            if (DB_Select(key, &tmp)) {
+                if (tmp.is_enabled != edit_enabled) {
+                    tmp.is_enabled = edit_enabled;
+                    DB_Insert(key, tmp);
+                }
             }
+        }
 
-            if (!is_pawn_suspended && xPawnTaskHandle != NULL)
-            {
+        if (main_switch.raw_data == 0)  // Ручной режим
+        {
+            // Блокируем Pawn, если ещё не заблокирован
+            if (!is_pawn_suspended && xPawnTaskHandle != NULL) {
                 vTaskSuspend(xPawnTaskHandle);
                 is_pawn_suspended = true;
             }
 
+            // 1. Обрабатываем Target Ohm (индекс 2)
+            if (DB_Select(2, &target_ohm)) {
+                if (target_ohm.raw_data != last_applied_target) {
+                    // Вычисляем оптимальные шаги для обоих каналов
+                    FindOptimalSteps(&hard, &soft, target_ohm.raw_data, &best_step1, &best_step2);
+
+                    // Отправляем на AD8402
+                    AD8402_Write(0, best_step1);
+                    AD8402_Write(1, best_step2);
+                    step1 = best_step1;
+                    step2 = best_step2;
+
+                    // Обновляем кэш применённых значений
+                    last_applied_target = target_ohm.raw_data;
+                    last_applied_value1 = best_step1;
+                    last_applied_value2 = best_step2;
+
+                    // Записываем новые шаги в БД, чтобы UI показывал актуальные значения
+                    DB_Value_t new_val1;
+                    if (DB_Select(0, &new_val1)) {
+                        new_val1.raw_data = best_step1;
+                    } else {
+                        new_val1 = (DB_Value_t){
+                            .is_readable = true,
+                            .save_to_flash = true,
+                            .type = 0x0,
+                            .min = 0,
+                            .max = 255,
+                            .step = 1,
+                            .is_enabled = true
+                        };
+                        new_val1.raw_data = best_step1;
+                    }
+                    DB_Insert(0, new_val1);
+
+                    DB_Value_t new_val2;
+                    if (DB_Select(1, &new_val2)) {
+                        new_val2.raw_data = best_step2;
+                    } else {
+                        new_val2 = (DB_Value_t){
+                            .is_readable = true,
+                            .save_to_flash = true,
+                            .type = 0x0,
+                            .min = 0,
+                            .max = 255,
+                            .step = 1,
+                            .is_enabled = true
+                        };
+                        new_val2.raw_data = best_step2;
+                    }
+                    DB_Insert(1, new_val2);
+                }
+            }
+
+            // 2. Обрабатываем прямое изменение Channel 0 (индекс 0)
+            if (DB_Select(0, &value1)) {
+                if (value1.raw_data != last_applied_value1) {
+                    AD8402_Write(0, value1.raw_data);
+                    step1 = value1.raw_data;
+                    last_applied_value1 = value1.raw_data;
+
+                    // Если target_ohm был применён ранее, сбрасываем его флаг,
+                    // чтобы не было конфликтов (канал изменён вручную)
+                    last_applied_target = -1;
+                }
+            }
+
+            // 3. Обрабатываем прямое изменение Channel 1 (индекс 1)
+            if (DB_Select(1, &value2)) {
+                if (value2.raw_data != last_applied_value2) {
+                    AD8402_Write(1, value2.raw_data);
+                    step2 = value2.raw_data;
+                    last_applied_value2 = value2.raw_data;
+
+                    last_applied_target = -1;
+                }
+            }
+
             vTaskDelay(pdMS_TO_TICKS(100));
         }
-        else
+        else  // Автоматический режим (Pawn управляет)
         {
-            if (is_pawn_suspended && xPawnTaskHandle != NULL)
-            {
+            // Разблокируем Pawn, если он был заблокирован
+            if (is_pawn_suspended && xPawnTaskHandle != NULL) {
                 vTaskResume(xPawnTaskHandle);
                 is_pawn_suspended = false;
             }
 
-            // Читаем целевое сопротивление (индекс 2)
-            DB_Select(2, &target_ohm);
-
-            FindOptimalSteps(&hard, &soft, target_ohm.raw_data, &best_step1, &best_step2);
-
-            if (best_step1 != step1)
-            {
-                AD8402_Write(0, best_step1);
-                step1 = best_step1;
-                
-                // Получаем полную запись перед изменением или задаём флаги явно
-                if (!DB_Select(0, &value1)) {
-                    value1 = (DB_Value_t){ .is_readable = true, .save_to_flash = true, .type = 0x0 };
-                }
-                value1.raw_data = best_step1;
-                DB_Insert(0, value1);
-            }
-            if (best_step2 != step2)
-            {
-                AD8402_Write(1, best_step2);
-                step2 = best_step2;
-                
-                if (!DB_Select(1, &value2)) {
-                    value2 = (DB_Value_t){ .is_readable = true, .save_to_flash = true, .type = 0x0 };
-                }
-                value2.raw_data = best_step2;
-                DB_Insert(1, value2);
-            }
+            // В этом режиме мы не трогаем потенциометры, ими управляет Pawn.
+            // Сбрасываем кэш применённых значений, чтобы при следующем переключении
+            // в ручной режим все текущие значения из БД были применены.
+            last_applied_target = -1;
+            last_applied_value1 = -1;
+            last_applied_value2 = -1;
 
             vTaskDelay(pdMS_TO_TICKS(50));
         }
