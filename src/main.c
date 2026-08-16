@@ -138,18 +138,22 @@ void vResistorControlTask(void *pvParameters)
 {
     uint32_t step1 = 0, step2 = 0;
     int16_t target_ohm;
+    DB_Value_t value1;
     DB_Value_t value2;
 
     for (;;)
     {
     
+        DB_Select(1, &value1);
         DB_Select(2, &value2);
 
-        if (value2.raw_data != step1)
-            AD8402_Write(0, value2.raw_data);
-
+        if (value1.raw_data != step1)
+            AD8402_Write(0, value1.raw_data);
+        if (value2.raw_data != step2)
+            AD8402_Write(1, value2.raw_data);
+        step1 = value1.raw_data;
+        step2 = value2.raw_data;
         vTaskDelay(pdMS_TO_TICKS(50));
-        step1 = value2.raw_data;
     }
 }
 
