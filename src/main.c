@@ -4,6 +4,7 @@
 #include "ucg.h"
 #include "hardware.h"
 #include "UI.h"
+#include "AD8402_driver.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -15,31 +16,12 @@
 extern QueueHandle_t xUartQueue;
 extern TaskHandle_t xPawnTaskHandle;
 
-void vLedFlashTask(void *pvParameters)
-{
-    (void)pvParameters;
-    int i = 0;
-    while (1)
-    {
-        DB_Value_t value;
-        DB_Select(0, &value);
-
-        value.raw_data = i + 1;
-        i += 1;
-        DB_Insert(0, value); 
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
-}
-
 void vDbSyncTimerCallback(TimerHandle_t xTimer)
 {
-    (void)xTimer; // Избавляемся от варнинга о неиспользуемой переменной
-    DB_Sync(); // Проверяем и сохраняем измененные данные
+    (void)xTimer;
+    DB_Sync();
 }
 
-extern int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8_t *data);
-
-/* Массив с именем файла, который заполняется внутри ymodem.c */
 extern uint8_t aFileName[FILE_NAME_LENGTH]; 
 
 void vReceiveTask(void *pvParameters)
@@ -83,7 +65,7 @@ void vReceiveTask(void *pvParameters)
         g_receivedFile.length = 0;
     }
 
-    // Уведомляем vPawnTask, если есть данные (или даже если нет, но тогда она должна обработать 0)
+    // Уведомляем vPawnTask, если есть данные
     if (xPawnTaskHandle != NULL)
     {
         xTaskNotifyGive(xPawnTaskHandle);
@@ -102,19 +84,19 @@ TaskHandle_t xEncoderButtonTaskHandle;
 
 void vEncButtonTask(void *pvParameters)
 {
-    while (1) {
-        // Задача заблокирована и ждет прерывания от EXTI1
+    while (1)
+    {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
-        // Программный антидребезг: ждем 50 мс
         vTaskDelay(pdMS_TO_TICKS(50));
-        
-        // Проверяем, зажат ли пин PB1 до сих пор (ноль — кнопка нажата)
-        if (!(GPIOB->IDR & GPIO_IDR_IDR_1)) {
+
+        if (!(GPIOB->IDR & GPIO_IDR_IDR_1))
+        {
             UI_ProcessAction(); 
         }
     }
 }
+
 volatile int32_t my_encoder_counter = 0;
 
 void vEncoderPollTask(void *pvParameters)
@@ -130,22 +112,17 @@ void vEncoderPollTask(void *pvParameters)
         current_tim_cnt = (int16_t)TIM4->CNT;
         delta = current_tim_cnt - last_tim_cnt;
 
-        // ФИЛЬТР ЭНКОДЕРА: 
-        // Большинство энкодеров выдают 2 или 4 шага на 1 физический щелчок.
-        // Если у вас перескакивает, поменяйте значение '2' ниже на '4'.
         const int16_t STEPS_PER_CLICK = 2; 
 
-        if (delta >= STEPS_PER_CLICK) {
-            // Крутанули ВПРАВО/ВНИЗ: делаем строго ОДИН шаг навигации
-            vTaskSuspendAll(); // Защищаем операцию от прерывания другими тасками
+        if (delta >= STEPS_PER_CLICK)
+        {
+            vTaskSuspendAll();
             UI_ProcessNavigate(1);
             xTaskResumeAll();
             
-            // Сдвигаем базовый счетчик ровно на отработанный шаг
             last_tim_cnt += STEPS_PER_CLICK;
         } 
         else if (delta <= -STEPS_PER_CLICK) {
-            // Крутанули ВЛЕВО/ВВЕРХ: делаем строго ОДИН шаг навигации
             vTaskSuspendAll();
             UI_ProcessNavigate(-1);
             xTaskResumeAll();
@@ -153,7 +130,26 @@ void vEncoderPollTask(void *pvParameters)
             last_tim_cnt -= STEPS_PER_CLICK;
         }
 
-        vTaskDelay(pdMS_TO_TICKS(10)); // Опрос каждые 10 мс для мгновенной отзывчивости
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+}
+
+void vResistorControlTask(void *pvParameters)
+{
+    uint32_t step1 = 0, step2 = 0;
+    int16_t target_ohm;
+    DB_Value_t value2;
+
+    for (;;)
+    {
+    
+        DB_Select(2, &value2);
+
+        if (value2.raw_data != step1)
+            AD8402_Write(0, value2.raw_data);
+
+        vTaskDelay(pdMS_TO_TICKS(50));
+        step1 = value2.raw_data;
     }
 }
 
@@ -169,7 +165,6 @@ int main(void)
     DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1, .type = 0x0 });
     DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 2, .type = 0x0 });
 
-
     DB_LoadFromFlash();
 
     TimerHandle_t xDbTimer = xTimerCreate("DbSyncTimer", 
@@ -183,7 +178,7 @@ int main(void)
         xTimerStart(xDbTimer, 0);
     }
 
-    xTaskCreate(vLedFlashTask, "LED", 256, NULL, 1, NULL);
+    xTaskCreate(vResistorControlTask, "Resistors", 256, NULL, 1, NULL);
     xTaskCreate(vReceiveTask, "Receive", 2024, NULL, 2, NULL);
     xTaskCreate(vPawnTask, "PawnVM", 2048, NULL, 1, &xPawnTaskHandle);
     xTaskCreate(vEncButtonTask, "EncBtn", 128, NULL, 3, &xEncoderButtonTaskHandle);

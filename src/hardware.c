@@ -103,6 +103,7 @@ void UART1_Init(void)
 // =====================================================================
 void SPI1_Init(void)
 {
+
     // Включаем тактирование GPIOA и SPI1
     RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
@@ -132,6 +133,16 @@ void SPI1_Init(void)
     SPI1->CR1 |= SPI_CR1_SSI;         // Внутренний NSS = 1
     SPI1->CR1 |= SPI_CR1_BR_0;        // Делитель = 4 (APB2 50 МГц -> SCK 12.5 МГц)
     SPI1->CR1 |= SPI_CR1_SPE;         // Включить SPI
+    
+    // --- Настройка CS потенциометра (PB0) как обычный выход GPIO ---
+    RCC->AHB1ENR   |=  RCC_AHB1ENR_GPIOBEN; // Включаем тактирование порта GPIOB
+    GPIOB->MODER   &= ~(3UL << (0 * 2));
+    GPIOB->MODER   |=  (1UL << (0 * 2));    // Режим Output (01)
+    GPIOB->OTYPER  &= ~(1UL << 0);          // Push-pull
+    GPIOB->OSPEEDR |=  (3UL << (0 * 2));    // High speed
+    GPIOB->PUPDR   &= ~(3UL << (0 * 2));    // Без подтяжек
+    GPIOB->BSRR    =   (1UL << 0);          // PB0 = 1 (деактивирован по умолчанию)
+
 }
 
 void Button_Init(void) {

@@ -386,6 +386,11 @@
           <GroupName>src</GroupName>
           <Files>
             <File>
+              <FileName>AD8402_driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\AD8402_driver.c</FilePath>
+            </File>
+            <File>
               <FileName>DataBase.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\DataBase.c</FilePath>
@@ -406,14 +411,14 @@
               <FilePath>.\src\iPawn.c</FilePath>
             </File>
             <File>
-              <FileName>iFS.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>.\src\iFS.c</FilePath>
-            </File>
-            <File>
               <FileName>hardware.c</FileName>
               <FileType>1</FileType>
               <FilePath>.\src\hardware.c</FilePath>
+            </File>
+            <File>
+              <FileName>iFS.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\iFS.c</FilePath>
             </File>
             <File>
               <FileName>ST7735_driver.c</FileName>
@@ -435,6 +440,11 @@
         <Group>
           <GroupName>inc</GroupName>
           <Files>
+            <File>
+              <FileName>AD8402_driver.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\AD8402_driver.h</FilePath>
+            </File>
             <File>
               <FileName>ST7735_driver.h</FileName>
               <FileType>5</FileType>

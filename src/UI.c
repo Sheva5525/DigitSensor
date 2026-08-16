@@ -31,7 +31,7 @@ static Menu_t settings_menu = {
 // --- 2. ПУНКТЫ И СТРУКТУРА ГЛАВНОГО МЕНЮ (КОРНЕВОГО) ---
 static MenuItem_t main_menu_items[MENU_SIZE] = {
     { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
-    { .name = "Volume Ctrl",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 30, 1 } },
+    { .name = "Reostat",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { IDX_2, 0, 255, 1 } },
     { .name = "LittleFS Files",.type = ITEM_CUSTOM_PAGE,.is_enabled = false, .load.custom_init_cb = NULL }, // Пока выключен
     { .name = "Device Info",   .type = ITEM_PARAM_INT, .is_enabled = false } // Заблокирован
 };
