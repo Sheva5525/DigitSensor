@@ -24,7 +24,7 @@ bool DB_Init(void)
     return true;
 }
 
-// Положить значение в БД. Если его нет - сделается новое.
+// Положить значение в БД. Если его нет - сделается новое
 bool DB_Insert(uint8_t key, DB_Value_t val)
 {
     if (_db_mutex == NULL) return false;
@@ -51,7 +51,7 @@ bool DB_Insert(uint8_t key, DB_Value_t val)
         _db_storage[idx].key = key;
         _db_storage[idx].value = val;
         _db_storage[idx].is_active = true;
-        _db_storage[idx].is_dirty = true; // <--- Данные изменились, нужна синхронизация
+        _db_storage[idx].is_dirty = true;
 
         xSemaphoreGive(_db_mutex);
         return true;
@@ -60,7 +60,6 @@ bool DB_Insert(uint8_t key, DB_Value_t val)
     xSemaphoreGive(_db_mutex);
     return false; 
 }
-
 
 // Взять значение из БД по ключу
 bool DB_Select(uint8_t key, DB_Value_t *out_val)
@@ -99,30 +98,22 @@ bool DB_Select(uint8_t key, DB_Value_t *out_val)
 void DB_LoadFromFlash(void)
 {
     DB_Value_t loaded_val;
-    
-    // Проходим по слотам (ключам) от 0 до 9
+
     for (uint8_t key = 0; key < 10; key++)
     {
-        // Читаем напрямую через слот (адрес посчитается внутри драйвера)
         W25Q16_Read_VarSlot(key, (uint8_t*)&loaded_val, sizeof(DB_Value_t));
-        
-        // Проверяем валидность данных (0xFF — чистая память, 0x00 — неинициализированная)
+
         if (loaded_val.save_to_flash == true && loaded_val.raw_data != -1 && loaded_val.raw_data != 0)
         {
-            // КРИТИЧЕСКИ ВАЖНО: временно гасим флаг, 
-            // чтобы DB_Insert просто записала данные в ОЗУ и НЕ стирала/писала флеш заново!
             loaded_val.save_to_flash = false; 
             
             if (DB_Insert(key, loaded_val))
             {
-                // Возвращаем флаг на место уже внутри структуры в ОЗУ,
-                // чтобы последующие изменения из меню могли сохраняться во флеш
                 _db_storage[key].value.save_to_flash = true;
             }
         }
     }
 }
-
 
 bool DB_StoreFile(const uint8_t *data, uint32_t length)
 {
@@ -158,7 +149,6 @@ bool DB_StoreFile(const uint8_t *data, uint32_t length)
         uint32_t chunk = (length - offset > 256) ? 256 : (length - offset);
         uint32_t addr = FILE_DATA_OFFSET + offset;
 
-        // Если chunk < 256, дополняем буфер 0xFF, чтобы не повредить соседние данные
         uint8_t page_buf[256];
         if (chunk < 256)
         {
@@ -206,7 +196,6 @@ bool DB_ReadFile(uint8_t *buffer, uint32_t max_length, uint32_t *out_length)
         return false;
     }
 
-    // Проверяем, что буфер достаточен
     if (stored_len > max_length)
     {
         xSemaphoreGive(_db_mutex);
@@ -227,7 +216,6 @@ void DB_Sync()
 
     for (uint32_t i = 0; i < DB_MAX_ROWS; i++)
     {
-        // Пишем только активные, измененные и предназначенные для флеша строки
         if (_db_storage[i].is_active && _db_storage[i].is_dirty && _db_storage[i].value.save_to_flash)
         {
             uint32_t flash_addr = VARS_START_ADDR + (_db_storage[i].key * VARS_SLOT_SIZE);
@@ -236,10 +224,9 @@ void DB_Sync()
             W25Q16_Wait_Busy();
             W25Q16_Write_VarSlot(_db_storage[i].key, (uint8_t*)&_db_storage[i].value, sizeof(DB_Value_t));
             
-            _db_storage[i].is_dirty = false; // Данные успешно сохранены
+            _db_storage[i].is_dirty = false;
         }
     }
 
     xSemaphoreGive(_db_mutex);
 }
-

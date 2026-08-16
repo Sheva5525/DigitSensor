@@ -164,6 +164,11 @@ int main(void)
     hardware_init();
     DB_Init();
     UI_Init();
+    
+    DB_Insert(0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0, .type = 0x0 });
+    DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1, .type = 0x0 });
+    DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 2, .type = 0x0 });
+
 
     DB_LoadFromFlash();
 

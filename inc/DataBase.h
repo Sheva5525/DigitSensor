@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define DB_MAX_ROWS 50    // Размер N вашего массива
+#define DB_MAX_ROWS 50
 
 #define FILE_START_ADDR     0x100000UL      // 1 МБ, кратно 4 КБ
 #define FILE_HEADER_SIZE    256             // заголовок (256 байт)
@@ -27,7 +27,6 @@ typedef enum
     TYPE_CONFIG
 } DB_ValueType_t;
 
-
 // Структура для хранения файла в ОЗУ
 typedef struct
 {
@@ -35,7 +34,6 @@ typedef struct
     uint32_t length;
 } DB_File_t;
 
-// Глобальный экземпляр файла
 extern DB_File_t g_receivedFile;
 
 typedef struct
