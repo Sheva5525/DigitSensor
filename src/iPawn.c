@@ -10,6 +10,8 @@
 #include "stm32f4xx.h"
 #include <string.h>
 
+bool is_pawn_suspended = false;
+
 #define PAWN_MEMORY_SIZE_BYTES  (2 * 1024)
 __attribute__((aligned(4))) uint8_t amx_run_memory[PAWN_MEMORY_SIZE_BYTES];
 

@@ -1,8 +1,8 @@
 #include "hardware.h"
-#include "stm32f4xx.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
+#include "stm32f4xx.h"
 
 // =====================================================================
 //  SystemClock_Config
@@ -185,7 +185,7 @@ void Encoder_Init(void)
     EXTI->FTSR |= EXTI_FTSR_TR1;  // Триггер по спаду (Falling edge - нажатие кнопки)
 
     // Приоритет прерывания 5 (такой же, как у вашего UART1, безопасный для FreeRTOS)
-    NVIC_SetPriority(EXTI1_IRQn, 5);
+    NVIC_SetPriority(EXTI1_IRQn, 2);
     NVIC_EnableIRQ(EXTI1_IRQn);
 
     // 5. Конфигурация TIM4 в режим Encoder 1 (Счет только по каналу TI1)
@@ -244,6 +244,41 @@ void SPI2_Init(void)
     SPI2->CR1 |= SPI_CR1_SPE; 
 }
 
+void TIM2_Enable(void)
+{
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
+
+    GPIOA->MODER   &= ~(3U << (0 * 2));
+    GPIOA->MODER   |=  (2U << (0 * 2));   // AF Mode
+    GPIOA->AFR[0]  &= ~(0xFU << (0 * 4));
+    GPIOA->AFR[0]  |=  (0x1U << (0 * 4));  // AF1 (TIM2)
+
+    TIM2->PSC = (SystemCoreClock / 1000000) - 1; // 1 тик = 1 мкс
+    TIM2->ARR = 0xFFFFFFFF; 
+
+    TIM2->CCMR1 &= ~TIM_CCMR1_CC1S;
+    TIM2->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 mapped on TI1
+
+    // Цифровой фильтр (8 выборок) для защиты от помех в сети 220В
+    TIM2->CCMR1 &= ~TIM_CCMR1_IC1F;
+    TIM2->CCMR1 |= (0x3U << TIM_CCMR1_IC1F_Pos); 
+
+    // СБРАСЫВАЕМ полярность в 0 (Захват строго по Rising Edge)
+    // Это гарантирует одинаковые физические условия для каждого замера!
+    TIM2->CCER &= ~(TIM_CCER_CC1P | TIM_CCER_CC1NP); 
+
+    TIM2->CCER |= TIM_CCER_CC1E;
+    TIM2->DIER |= TIM_DIER_CC1IE;
+
+    // Приоритет должен быть ЧИСЛЕННО ВЫШЕ или РАВЕН configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY
+    // Обычно для STM32 на FreeRTOS безопасным является приоритет 5..15
+    NVIC_SetPriority(TIM2_IRQn, 5); 
+    NVIC_EnableIRQ(TIM2_IRQn);
+
+    TIM2->CR1 |= TIM_CR1_CEN;
+}
+
 // =====================================================================
 //  System_Init
 //  Вызывает все инициализации периферии в правильном порядке:
@@ -258,6 +293,7 @@ void hardware_init(void)
     Encoder_Init();
     SPI1_Init();
     SPI2_Init();
+    TIM2_Enable();
 }
 
 extern QueueHandle_t xUartQueue;
@@ -285,7 +321,7 @@ void USART1_IRQHandler(void)
     portYIELD_FROM_ISR(xHigherPriorityTaskWoken);
 }
 
-extern TaskHandle_t xEncoderButtonTaskHandle;
+TaskHandle_t xEncoderButtonTaskHandle;
 
 void EXTI1_IRQHandler(void)
 {

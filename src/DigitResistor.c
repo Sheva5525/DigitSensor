@@ -24,60 +24,29 @@ void FindOptimalSteps( const DigitalRes* pot1
                      , uint32_t* best_res1
                      , uint32_t* best_res2)
 {
-    float step_cost1 = (float)pot1->ratedRes / pot1->resolution;
-    float step_cost2 = (float)pot2->ratedRes / pot2->resolution;
-    
     float min_error = FLT_MAX;
     *best_res1 = 0;
     *best_res2 = 0;
 
+    // Полный перебор всех 65k комбинаций (256 * 256)
     for (uint32_t res1 = 0; res1 <= pot1->resolution; ++res1)
     {
         float r1 = calibrate[res1];
 
-        if (r1 <= target_ohm)
+        for (uint32_t res2 = 0; res2 <= pot2->resolution; ++res2)
         {
-            continue; 
-        }
+            float r2 = calibrate[res2];
 
-        float r2_needed = (r1 * target_ohm) / (r1 - target_ohm);
-        uint32_t closest_index = 0;
-        float min_diff = fabsf(r2_needed - calibrate[0]);
+            // Формула параллельного соединения проводников
+            float current_ohm = (r1 * r2) / (r1 + r2);
+            float error = fabsf(current_ohm - target_ohm);
 
-        for (uint32_t i = 0; i < 255; i++) 
-        {
-            float current_diff = fabsf(r2_needed - calibrate[i]);
-            if (current_diff < min_diff) 
+            if (error < min_error)
             {
-                min_diff = current_diff;
-                closest_index = i;
+                min_error = error;
+                *best_res1 = res1;
+                *best_res2 = res2;
             }
-        }
-
-        uint32_t res2 = 0;
-        if (closest_index >= pot2->resolution) 
-        {
-            res2 = pot2->resolution;
-        }
-        else
-        {
-            res2 = closest_index;
-        }
-
-        if (res2 == 0)
-        {
-            continue;
-        }
-
-        float r2_actual = calibrate[res2];
-        float current_ohm = (r1 * r2_actual) / (r1 + r2_actual);
-        float error = fabsf(current_ohm - target_ohm);
-
-        if (error < min_error)
-        {
-            min_error = error;
-            *best_res1 = res1;
-            *best_res2 = res2;
         }
     }
 }

@@ -445,6 +445,26 @@
               <FileType>1</FileType>
               <FilePath>.\src\Fonts.c</FilePath>
             </File>
+            <File>
+              <FileName>ValveDetect.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\ValveDetect.c</FilePath>
+            </File>
+            <File>
+              <FileName>MainLogic.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\MainLogic.c</FilePath>
+            </File>
+            <File>
+              <FileName>StoreFiles.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\StoreFiles.c</FilePath>
+            </File>
+            <File>
+              <FileName>EncoderControl.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\src\EncoderControl.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>
@@ -494,6 +514,26 @@
               <FileName>DigitResistor.h</FileName>
               <FileType>5</FileType>
               <FilePath>.\inc\DigitResistor.h</FilePath>
+            </File>
+            <File>
+              <FileName>ValveDetect.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\ValveDetect.h</FilePath>
+            </File>
+            <File>
+              <FileName>MainLogic.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\MainLogic.h</FilePath>
+            </File>
+            <File>
+              <FileName>StoreFiles.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\StoreFiles.h</FilePath>
+            </File>
+            <File>
+              <FileName>EncoderControl.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\inc\EncoderControl.h</FilePath>
             </File>
           </Files>
         </Group>
