@@ -5,86 +5,97 @@
 
 TaskHandle_t xNetworkDetectorTaskHandle = NULL;
 
-volatile uint8_t is_220v_alive = 0;
-volatile uint32_t total_network_present_us = 0;
-volatile uint32_t net_t_start = 0;
-volatile uint32_t net_t_last = 0;
-volatile uint8_t  new_data_flag = 0;
-volatile uint8_t  network_active_isr = 0; 
+volatile uint32_t ch1_pulses = 0; // Для PA3 (Открытие)
+volatile uint32_t ch2_pulses = 0; // Для PB10 (Закрытие)
+
+volatile uint32_t last_capture_ch3 = 0; 
+volatile uint32_t last_capture_ch4 = 0;
+
+#define NET_PERIOD_MIN_US  15000UL // Минимальный период сетевой волны (15 мс)
 
 void TIM2_IRQHandler(void)
 {
-    if (TIM2->SR & TIM_SR_CC1IF) 
+    // Проверяем Канал 3 (PB10 - Закрытие)
+    if (TIM2->SR & TIM_SR_CC3IF) 
     {
-        uint32_t capture = TIM2->CCR1;
-
-        if (!network_active_isr)
+        TIM2->SR = ~TIM_SR_CC3IF; // Сброс флага
+        uint32_t current_capture = TIM2->CCR3;
+        
+        if ((current_capture - last_capture_ch3) >= NET_PERIOD_MIN_US)
         {
-            net_t_start = capture;
-            net_t_last = capture; 
-            network_active_isr = 1;
+            ch2_pulses++; 
+            last_capture_ch3 = current_capture; 
         }
-        else
+    }
+    
+    // Проверяем Канал 4 (PA3 - Открытие)
+    if (TIM2->SR & TIM_SR_CC4IF) 
+    {
+        TIM2->SR = ~TIM_SR_CC4IF; // Сброс флага
+        uint32_t current_capture = TIM2->CCR4;
+        
+        if ((current_capture - last_capture_ch4) >= NET_PERIOD_MIN_US)
         {
-            net_t_last = capture; 
+            ch1_pulses++;
+            last_capture_ch4 = current_capture;
         }
-
-        new_data_flag = 1;
     }
 }
+
+#define VALVE_FULL_TIME_MS  100000UL // 100 секунд на полное открытие
+#define TIMEOUT_220V_MS     30UL
+
+int32_t valve_time_ms = 0;           // Текущее положение (0 ... VALVE_FULL_TIME_MS)
+float valve_percent = 0.0f;
 
 void vValveDetect()
 {
-    uint32_t timeout_counter_ms = 0;
+    uint32_t ch1_timeout = 0;
+    uint32_t ch2_timeout = 0;
 
     for (;;)
     {
-        vTaskDelay(pdMS_TO_TICKS(10));
+        vTaskDelay(pdMS_TO_TICKS(10)); // Шаг таска
 
+        uint32_t local_ch1_pulses = 0;
+        uint32_t local_ch2_pulses = 0;
+
+        // Атомарно забираем накопленные импульсы
         taskENTER_CRITICAL();
-        uint8_t  has_new = new_data_flag;
-        uint32_t t_start = net_t_start;
-        uint32_t t_last  = net_t_last;
-        if (has_new) {
-            new_data_flag = 0; 
+        if (ch1_pulses > 0) {
+            local_ch1_pulses = ch1_pulses;
+            ch1_pulses = 0;
+        }
+        if (ch2_pulses > 0) {
+            local_ch2_pulses = ch2_pulses;
+            ch2_pulses = 0;
         }
         taskEXIT_CRITICAL();
 
-        if (has_new) 
-        {
-            timeout_counter_ms = 0;
-            is_220v_alive = 1;
-
-            total_network_present_us = t_last - t_start;
-
-            if (total_network_present_us > 3000000000UL) // 30 ms
-            {
-                taskENTER_CRITICAL();
-                net_t_start = t_last;
-                taskEXIT_CRITICAL();
-            }
+        // --- Логика Канала 1 (PA3 - Открытие) ---
+        if (local_ch1_pulses > 0) {
+            ch1_timeout = 0;
+            // Каждый импульс добавляет ровно 20 мс работы сети
+            valve_time_ms += (local_ch1_pulses * 20); 
+        } else {
+            ch1_timeout += 10;
         }
-        else
-        {
-            if (is_220v_alive == 1) 
-            {
-                timeout_counter_ms += 10;
 
-                if (timeout_counter_ms >= 30)
-                {
-                    is_220v_alive = 0;
-
-                    taskENTER_CRITICAL();
-                    network_active_isr = 0;
-
-                    net_t_start = 0;
-                    net_t_last = 0;
-                    taskEXIT_CRITICAL();
-
-                    total_network_present_us = t_last - t_start;
-                    timeout_counter_ms = 0;
-                }
-            }
+        // --- Логика Канала 2 (PB10 - Закрытие) ---
+        if (local_ch2_pulses > 0) {
+            ch2_timeout = 0;
+            // Каждый импульс отнимает ровно 20 мс
+            valve_time_ms -= (local_ch2_pulses * 20); 
+        } else {
+            ch2_timeout += 10;
         }
+
+        // Ограничиваем физические рамки хода клапана (0...100 сек)
+        if (valve_time_ms > (int32_t)VALVE_FULL_TIME_MS) valve_time_ms = VALVE_FULL_TIME_MS;
+        if (valve_time_ms < 0) valve_time_ms = 0;
+
+        // Считаем проценты для вывода на экран или логики
+        valve_percent = ((float)valve_time_ms / VALVE_FULL_TIME_MS) * 100.0f;
     }
 }
+

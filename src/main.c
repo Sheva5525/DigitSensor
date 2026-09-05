@@ -42,6 +42,7 @@ void vEncoderPollTask(void *pvParameters)
 
 void vPawnTask(void *pvParameters)
 {
+    while (1);
     PawnTask();
 }
 

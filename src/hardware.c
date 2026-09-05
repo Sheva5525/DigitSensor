@@ -246,37 +246,58 @@ void SPI2_Init(void)
 
 void TIM2_Enable(void)
 {
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    // 1. Включаем тактирование портов GPIOA, GPIOB и таймера TIM2
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
     RCC->APB1ENR |= RCC_APB1ENR_TIM2EN;
 
-    GPIOA->MODER   &= ~(3U << (0 * 2));
-    GPIOA->MODER   |=  (2U << (0 * 2));   // AF Mode
-    GPIOA->AFR[0]  &= ~(0xFU << (0 * 4));
-    GPIOA->AFR[0]  |=  (0x1U << (0 * 4));  // AF1 (TIM2)
+    // --- КАНАЛ 1: ОТКРЫТИЕ (Пин PA3 -> TIM2_CH4) ---
+    GPIOA->MODER   &= ~(3U << (3 * 2));
+    GPIOA->MODER   |=  (2U << (3 * 2));   // Режим: Альтернативная функция
+    GPIOA->AFR[0]  &= ~(0xFU << (3 * 4));  // PA3 находится в нижнем регистре AFR[0] (CRL)
+    GPIOA->AFR[0]  |=  (0x1U << (3 * 4));  // Назначаем AF1 (TIM2_CH4)
+    GPIOA->PUPDR   &= ~(3U << (3 * 2));   // Отключаем внутреннюю подтяжку
 
-    TIM2->PSC = (SystemCoreClock / 1000000) - 1; // 1 тик = 1 мкс
-    TIM2->ARR = 0xFFFFFFFF; 
+    // --- КАНАЛ 2: ЗАКРЫТИЕ (Пин PB10 -> TIM2_CH3) ---
+    GPIOB->MODER   &= ~(3U << (10 * 2));
+    GPIOB->MODER   |=  (2U << (10 * 2));  // Режим: Альтернативная функция
+    GPIOB->AFR[1]  &= ~(0xFU << ((10 - 8) * 4)); // PB10 находится в верхнем регистре AFR[1] (CRH)
+    GPIOB->AFR[1]  |=  (0x1U << ((10 - 8) * 4)); // Назначаем AF1 (TIM2_CH3)
+    GPIOB->PUPDR   &= ~(3U << (10 * 2));  // Отключаем внутреннюю подтяжку
 
-    TIM2->CCMR1 &= ~TIM_CCMR1_CC1S;
-    TIM2->CCMR1 |= TIM_CCMR1_CC1S_0; // CC1 mapped on TI1
+    // 2. Настройка предделителя и периода таймера
+    // На вход TIM2 подается 100 МГц. Делим на 100 -> получаем 1 МГц (1 тик = 1 мкс)
+    TIM2->PSC = 100 - 1; 
+    TIM2->ARR = 0xFFFFFFFF; // Максимальный 32-битный период
 
-    // Цифровой фильтр (8 выборок) для защиты от помех в сети 220В
-    TIM2->CCMR1 &= ~TIM_CCMR1_IC1F;
-    TIM2->CCMR1 |= (0x3U << TIM_CCMR1_IC1F_Pos); 
+    // 3. Настройка каналов захвата (Input Capture) в CCMR2
+    // Настройка TIM2_CH3 (PB10)
+    TIM2->CCMR2 &= ~TIM_CCMR2_CC3S;
+    TIM2->CCMR2 |= TIM_CCMR2_CC3S_0;             // Направление: Вход TI3
+    TIM2->CCMR2 &= ~TIM_CCMR2_IC3F;
+    TIM2->CCMR2 |= (0xFU << TIM_CCMR2_IC3F_Pos); // Максимальный аппаратный фильтр (0xF)
 
-    // СБРАСЫВАЕМ полярность в 0 (Захват строго по Rising Edge)
-    // Это гарантирует одинаковые физические условия для каждого замера!
-    TIM2->CCER &= ~(TIM_CCER_CC1P | TIM_CCER_CC1NP); 
+    // Настройка TIM2_CH4 (PA3)
+    TIM2->CCMR2 &= ~TIM_CCMR2_CC4S;
+    TIM2->CCMR2 |= TIM_CCMR2_CC4S_0;             // Направление: Вход TI4
+    TIM2->CCMR2 &= ~TIM_CCMR2_IC4F;
+    TIM2->CCMR2 |= (0xFU << TIM_CCMR2_IC4F_Pos); // Максимальный аппаратный фильтр (0xF)
 
-    TIM2->CCER |= TIM_CCER_CC1E;
-    TIM2->DIER |= TIM_DIER_CC1IE;
+    // 4. Настройка полярности и активация каналов в CCER
+    // Захват строго по переднему фронту (Rising Edge) — обнуляем биты P и NP
+    TIM2->CCER  &= ~(TIM_CCER_CC3P | TIM_CCER_CC3NP | TIM_CCER_CC4P | TIM_CCER_CC4NP); 
+    TIM2->CCER  |= (TIM_CCER_CC3E | TIM_CCER_CC4E); // Включаем захват для обоих каналов
 
-    // Приоритет должен быть ЧИСЛЕННО ВЫШЕ или РАВЕН configLIBRARY_MAX_SYSCALL_INTERRUPT_PRIORITY
-    // Обычно для STM32 на FreeRTOS безопасным является приоритет 5..15
+    // 5. Разрешаем аппаратные прерывания по захвату для обоих каналов
+    TIM2->DIER  |= (TIM_DIER_CC3IE | TIM_DIER_CC4IE);
+
+    // Настройка приоритета для корректной работы прерываний параллельно с FreeRTOS
     NVIC_SetPriority(TIM2_IRQn, 5); 
     NVIC_EnableIRQ(TIM2_IRQn);
 
-    TIM2->CR1 |= TIM_CR1_CEN;
+    // 6. Сброс зависших флагов и запуск таймера
+    TIM2->SR = 0;             // Принудительно очищаем регистр статуса перед стартом
+    TIM2->CR1 |= TIM_CR1_CEN; // Включаем таймер
+    TIM2->EGR |= TIM_EGR_UG;
 }
 
 // =====================================================================
