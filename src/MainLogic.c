@@ -22,6 +22,11 @@ void ResistorControl()
     int32_t last_applied_target = -1;
     int32_t last_applied_value1 = -1;
     int32_t last_applied_value2 = -1;
+    
+    POT1_WRITE(0, 255); // Записать максимум в первый канал потенциометра №1
+    POT1_WRITE(1, 255); // Записать максимум в первый канал потенциометра №1
+    POT2_WRITE(0, 255); // Записать половину во второй канал потенциометра №2
+    POT2_WRITE(1, 255); // Записать половину во второй канал потенциометра №2
 
     for (;;)
     {
@@ -60,8 +65,8 @@ void ResistorControl()
                 {
                     FindOptimalSteps(&hard, &soft, target_ohm.raw_data, &best_step1, &best_step2);
 
-                    AD8402_Write(0, best_step1);
-                    AD8402_Write(1, best_step2);
+//                    AD8402_Write(0, best_step1);
+//                    AD8402_Write(1, best_step2);
                     step1 = best_step1;
                     step2 = best_step2;
 
@@ -117,7 +122,7 @@ void ResistorControl()
             {
                 if (value1.raw_data != last_applied_value1)
                 {
-                    AD8402_Write(0, value1.raw_data);
+                    //AD8402_Write(0, value1.raw_data);
                     step1 = value1.raw_data;
                     last_applied_value1 = value1.raw_data;
 
@@ -129,7 +134,7 @@ void ResistorControl()
             {
                 if (value2.raw_data != last_applied_value2)
                 {
-                    AD8402_Write(1, value2.raw_data);
+//                    AD8402_Write(1, value2.raw_data);
                     step2 = value2.raw_data;
                     last_applied_value2 = value2.raw_data;
 

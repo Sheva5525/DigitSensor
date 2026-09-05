@@ -70,8 +70,8 @@ static cell AMXAPI native_SetOhm(AMX *amx, const cell *params)
 
     FindOptimalSteps(&hard, &soft, target_ohm, &best_step1, &best_step2);
 
-    AD8402_Write(0, best_step1);
-    AD8402_Write(1, best_step2);
+//    AD8402_Write(0, best_step1);
+//    AD8402_Write(1, best_step2);
 
     last_target_ohm = target_ohm;
     last_step1 = best_step1;

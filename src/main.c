@@ -86,6 +86,7 @@ int main(void)
     {
         g_ymodem_mode = true;
     }
+   
 
     xTaskCreate(vResistorControlTask, "Resistors", 256, NULL, 1, NULL);
     xTaskCreate(vReceiveTask, "Receive", 2024, NULL, 2, NULL);

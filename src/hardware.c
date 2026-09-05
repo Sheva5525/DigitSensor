@@ -103,46 +103,48 @@ void UART1_Init(void)
 // =====================================================================
 void SPI1_Init(void)
 {
-
-    // Включаем тактирование GPIOA и SPI1
-    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;
+    // Включаем тактирование GPIOA, GPIOB и модуля SPI1
+    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN | RCC_AHB1ENR_GPIOBEN;
     RCC->APB2ENR |= RCC_APB2ENR_SPI1EN;
 
-    // --- CS (PA4) как обычный выход ---
+    // --- Родной CS платы (PA4) как обычный выход ---
     GPIOA->MODER   &= ~(3UL << (4 * 2));
     GPIOA->MODER   |=  (1UL << (4 * 2));   // Output
     GPIOA->OTYPER  &= ~(1UL << 4);         // Push-pull
     GPIOA->OSPEEDR |=  (3UL << (4 * 2));   // High speed
     GPIOA->PUPDR   &= ~(3UL << (4 * 2));   // Без подтяжек
-    GPIOA->BSRR = (1UL << 4);              // CS = 1 (неактивен)
+    GPIOA->BSRR = (1UL << 4);              // PA4 = 1 (неактивен)
 
     // --- SCK (PA5), MISO (PA6), MOSI (PA7) как альтернативная функция AF5 ---
     GPIOA->MODER   &= ~((3UL << (5*2)) | (3UL << (6*2)) | (3UL << (7*2)));
     GPIOA->MODER   |=  ((2UL << (5*2)) | (2UL << (6*2)) | (2UL << (7*2))); // AF mode
-
     GPIOA->OSPEEDR |=  ((3UL << (5*2)) | (3UL << (6*2)) | (3UL << (7*2))); // High speed
 
-    // AF5 для пинов 5,6,7 (регистр AFR[0] отвечает за пины 0..7)
+    // AF5 для пинов 5, 6, 7
     GPIOA->AFR[0] &= ~((0xFUL << (5*4)) | (0xFUL << (6*4)) | (0xFUL << (7*4)));
     GPIOA->AFR[0] |=  ((5UL << (5*4)) | (5UL << (6*4)) | (5UL << (7*4)));
+
+    // --- НАСТРОЙКА CS ПОТЕНЦИОМЕТРОВ (PB2 и PB4) ---
+    GPIOB->MODER   &= ~((3UL << (2 * 2)) | (3UL << (4 * 2)));
+    GPIOB->MODER   |=  ((1UL << (2 * 2)) | (1UL << (4 * 2))); // Output mode (01)
+    GPIOB->OTYPER  &= ~((1UL << 2) | (1UL << 4));             // Push-pull
+    GPIOB->OSPEEDR |=  ((3UL << (2 * 2)) | (3UL << (4 * 2))); // High speed
+    GPIOB->PUPDR   &= ~((3UL << (2 * 2)) | (3UL << (4 * 2))); // Без подтяжек
+    
+    // Переводим PB2 и PB4 в логическую 1 (оба чипа деактивированы по умолчанию)
+    GPIOB->BSRR = (1UL << 2) | (1UL << 4);
 
     // --- Конфигурация SPI1 ---
     SPI1->CR1 = 0;                    // Сброс
     SPI1->CR1 |= SPI_CR1_MSTR;        // Мастер
     SPI1->CR1 |= SPI_CR1_SSM;         // Программное управление NSS
     SPI1->CR1 |= SPI_CR1_SSI;         // Внутренний NSS = 1
-    SPI1->CR1 |= SPI_CR1_BR_0;        // Делитель = 4 (APB2 50 МГц -> SCK 12.5 МГц)
-    SPI1->CR1 |= SPI_CR1_SPE;         // Включить SPI
     
-    // --- Настройка CS потенциометра (PB0) как обычный выход GPIO ---
-    RCC->AHB1ENR   |=  RCC_AHB1ENR_GPIOBEN; // Включаем тактирование порта GPIOB
-    GPIOB->MODER   &= ~(3UL << (0 * 2));
-    GPIOB->MODER   |=  (1UL << (0 * 2));    // Режим Output (01)
-    GPIOB->OTYPER  &= ~(1UL << 0);          // Push-pull
-    GPIOB->OSPEEDR |=  (3UL << (0 * 2));    // High speed
-    GPIOB->PUPDR   &= ~(3UL << (0 * 2));    // Без подтяжек
-    GPIOB->BSRR    =   (1UL << 0);          // PB0 = 1 (деактивирован по умолчанию)
-
+    // Делитель частоты /16. При частоте шины APB2 = 100 МГц (из вашей SystemClock_Config)
+    // это дает стабильные и безопасные для потенциометра 6.25 МГц.
+    SPI1->CR1 |= SPI_CR1_BR_1 | SPI_CR1_BR_0; 
+    
+    SPI1->CR1 |= SPI_CR1_SPE;         // Включить SPI
 }
 
 void Button_Init(void) {
