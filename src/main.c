@@ -64,10 +64,16 @@ int main(void)
     DB_Init();
     UI_Init();
     
-    DB_Insert(0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = true });
-    DB_Insert(1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = true });
-    DB_Insert(2, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0, .min = 50,  .max = 500, .step = 1, .is_enabled = true });
-    DB_Insert(3, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,  .type = 0x0, .min = 0,   .max = 1,   .step = 1, .is_enabled = true });
+    DB_Insert(OUT_1_CH_0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = false });
+    DB_Insert(OUT_1_CH_1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = false });
+    DB_Insert(OUT_1_OHM, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0, .min = 50,  .max = 500, .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_CH_0, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_CH_1, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0,   .max = 255, .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_OHM, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0, .min = 50,  .max = 500, .step = 1, .is_enabled = false });
+    DB_Insert(VALVE_PERCENT, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,  .type = 0x0, .min = 0,   .max = 100,   .step = 1, .is_enabled = false });
+    DB_Insert(MAIN_SWITCH, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,  .type = 0x0, .min = 0,   .max = 1,   .step = 1, .is_enabled = true });
+    DB_Insert(VALVE_TYPE, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,  .type = 0x0, .min = 0,   .max = 1,   .step = 1, .is_enabled = true });
+    DB_Insert(VALVE_OPEN_TIME, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 100,  .type = 0x0, .min = 0,   .max = 1000,   .step = 1, .is_enabled = true });
     
     DB_LoadFromFlash();
 

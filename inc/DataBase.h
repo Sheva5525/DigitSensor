@@ -8,6 +8,20 @@
 #include <string.h>
 #include <stdbool.h>
 
+#define OUT_1_CH_0 0
+#define OUT_1_CH_1 1
+#define OUT_1_OHM 2
+
+#define OUT_2_CH_0 3
+#define OUT_2_CH_1 4
+#define OUT_2_OHM 5
+
+#define VALVE_PERCENT 6
+
+#define MAIN_SWITCH 7
+#define VALVE_TYPE 8
+#define VALVE_OPEN_TIME 9
+
 #define DB_MAX_ROWS 50
 
 #define FILE_START_ADDR     0x100000UL      // 1 МБ, кратно 4 КБ

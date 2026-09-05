@@ -7,15 +7,12 @@ extern int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8
 static Menu_t main_menu;
 static Menu_t settings_menu;
 
-#define IDX_0 0
-#define IDX_1 1
-#define IDX_2 2
-#define IDX_3 3
-
 static MenuItem_t settings_items[MENU_SIZE] =
 {
     { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
-    { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = IDX_3 } }
+    { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = MAIN_SWITCH } },
+    { .name = "Valve type",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = VALVE_TYPE } },
+    { .name = "Valve open time",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = VALVE_OPEN_TIME } }
 };
 
 static Menu_t settings_menu =
@@ -28,9 +25,15 @@ static Menu_t settings_menu =
 static MenuItem_t main_menu_items[MENU_SIZE] =
 {
     { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
-    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = IDX_0 } },
-    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = IDX_1 } },
-    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = IDX_2 } }
+    { .name = "Valve %",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = VALVE_PERCENT } },
+    { .name = "Output 1", .type = ITEM_LABEL},
+    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_0 } },
+    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_1 } },
+    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_OHM } },
+    { .name = "Output 2", .type = ITEM_LABEL},
+    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_0 } },
+    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_1 } },
+    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_OHM } }
 };
 
 static Menu_t main_menu =
@@ -68,7 +71,7 @@ static uint8_t history_depth = 0;
 #define COLOR_WHITE   255, 255, 255
 #define COLOR_BLACK   0, 0, 0
 #define COLOR_RED     255, 0, 0
-#define COLOR_GREY    180, 180, 180
+#define COLOR_GREY    70, 70, 70
 #define COLOR_BG_LINE 220, 220, 220 // Серый цвет для выделенной строки
 
 static void UI_UpdateScroll(void);
@@ -132,35 +135,17 @@ void UI_ProcessNavigate(int8_t direction)
         for (uint8_t i = 0; i < size; i++)
         {
             check_pos += direction;
-
             if (check_pos >= size) check_pos = 0;
             if (check_pos < 0) check_pos = size - 1;
 
             MenuItem_t *candidate = &ui.current_menu->items[check_pos];
             if (candidate->name == NULL) continue;
-            if (candidate->type == ITEM_LABEL) continue;
+            if (candidate->type == ITEM_LABEL) continue;   // только их пропускаем
 
-            bool enabled = candidate->is_enabled; // для непараметров
-
-            if (candidate->type == ITEM_PARAM_INT)
-            {
-                DB_Value_t db_val;
-                if (DB_Select(candidate->load.int_param.db_index, &db_val))
-                {
-                    enabled = db_val.is_enabled;
-                }
-                else
-                {
-                    enabled = false;
-                }
-            }
-
-            if (enabled)
-            {
-                ui.cursor = check_pos;
-                UI_UpdateScroll();
-                return;
-            }
+            // Всегда перемещаемся на найденный элемент (даже если он неактивен)
+            ui.cursor = check_pos;
+            UI_UpdateScroll();
+            return;
         }
     } 
     else if (ui.mode == UI_MODE_EDIT)
@@ -194,21 +179,18 @@ void UI_ProcessAction(void)
                 DB_Value_t value;
                 if (DB_Select(item->load.int_param.db_index, &value))
                 {
+                    if (!value.is_enabled) {
+                        // Неактивный параметр – игнорируем нажатие
+                        break;
+                    }
                     current_edit_value = value;
                     ui.temp_value = value.raw_data;
                 }
                 else
                 {
-                    current_edit_value = (DB_Value_t)
-                    {
-                        .is_readable = true,
-                        .save_to_flash = true,
-                        .raw_data = 0,
-                        .type = 0x0,
-                        .min = 0,
-                        .max = 0,
-                        .step = 1
-                    };
+                    current_edit_value = (DB_Value_t){ .is_readable = true, .save_to_flash = true,
+                                                       .raw_data = 0, .type = 0x0, .min = 0,
+                                                       .max = 0, .step = 1 };
                     ui.temp_value = current_edit_value.raw_data;
                 }
                 ui.mode = UI_MODE_EDIT;
@@ -470,6 +452,7 @@ void vGuiTask(void *pvParameters)
 void UI_Init()
 {
     ucg_Init(&ucg, ucg_dev_st7735_18x128x160, ucg_ext_st7735_18, ucg_com_stm32_spi_cb);
+    ucg_SetRotate90(&ucg);
     ucg_SetFontMode(&ucg, UCG_FONT_MODE_TRANSPARENT);
     ucg_SetFont(&ucg, ucg_font_6x10);
 

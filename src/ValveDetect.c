@@ -1,4 +1,5 @@
 #include "ValveDetect.h"
+#include "DataBase.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "stm32f4xx.h"
@@ -16,10 +17,9 @@ volatile uint32_t last_capture_ch4 = 0;
 
 void TIM2_IRQHandler(void)
 {
-    // Проверяем Канал 3 (PB10 - Закрытие)
     if (TIM2->SR & TIM_SR_CC3IF) 
     {
-        TIM2->SR = ~TIM_SR_CC3IF; // Сброс флага
+        TIM2->SR = ~TIM_SR_CC3IF;
         uint32_t current_capture = TIM2->CCR3;
         
         if ((current_capture - last_capture_ch3) >= NET_PERIOD_MIN_US)
@@ -28,11 +28,10 @@ void TIM2_IRQHandler(void)
             last_capture_ch3 = current_capture; 
         }
     }
-    
-    // Проверяем Канал 4 (PA3 - Открытие)
+
     if (TIM2->SR & TIM_SR_CC4IF) 
     {
-        TIM2->SR = ~TIM_SR_CC4IF; // Сброс флага
+        TIM2->SR = ~TIM_SR_CC4IF;
         uint32_t current_capture = TIM2->CCR4;
         
         if ((current_capture - last_capture_ch4) >= NET_PERIOD_MIN_US)
@@ -45,13 +44,10 @@ void TIM2_IRQHandler(void)
 
 uint16_t ADC1_Read_PB0(void)
 {
-    // Запускаем преобразование регулярного канала (бит SWSTART)
     ADC1->CR2 |= ADC_CR2_SWSTART;
 
-    // Ждем окончания преобразования (пока флаг EOC в регистре SR не станет равен 1)
     while (!(ADC1->SR & ADC_SR_EOC));
 
-    // Возвращаем результат из регистра данных (флаг EOC сбросится автоматически при чтении)
     return (uint16_t)(ADC1->DR);
 }
 
@@ -66,27 +62,37 @@ void vValveDetect()
     uint32_t ch1_timeout = 0;
     uint32_t ch2_timeout = 0;
     bool mode_0_10v_enabled = 1;
+    DB_Value_t valve_t, max_sec_open;
     
     for (;;)
     {
         vTaskDelay(pdMS_TO_TICKS(10)); // Шаг таска
-        if (mode_0_10v_enabled) 
+        
+        if (!DB_Select(VALVE_TYPE, &valve_t))
+            valve_t.raw_data = 0;
+        
+        if (!DB_Select(VALVE_OPEN_TIME, &max_sec_open))
+            max_sec_open.raw_data = 200; // значение по умолчанию (секунд)
+
+        // Переводим время полного хода в миллисекунды для внутренних расчётов
+        uint32_t max_time_ms = max_sec_open.raw_data * 1000UL;
+
+        bool type_valve = (valve_t.raw_data == 0);
+
+        if (type_valve) 
         {
             // --- РЕЖИМ УПРАВЛЕНИЯ 0-10В ---
             uint16_t adc_value = ADC1_Read_PB0();
-            
-            // Переводим 12-битное значение АЦП (0...4095) напрямую в проценты (0.0 ... 100.0%)
             valve_percent = ((float)adc_value / 4095.0f) * 100.0f;
             
-            // Также обновляем виртуальное время хода клапана, чтобы при переключении режимов не было рывков
-            valve_time_ms = (int32_t)((valve_percent / 100.0f) * VALVE_FULL_TIME_MS);
+            // Обновляем виртуальное время хода клапана (в миллисекундах)
+            valve_time_ms = (int32_t)((valve_percent / 100.0f) * max_time_ms);
         }
         else 
         {
             uint32_t local_ch1_pulses = 0;
             uint32_t local_ch2_pulses = 0;
 
-            // Атомарно забираем накопленные импульсы
             taskENTER_CRITICAL();
             if (ch1_pulses > 0) {
                 local_ch1_pulses = ch1_pulses;
@@ -101,8 +107,7 @@ void vValveDetect()
             // --- Логика Канала 1 (PA3 - Открытие) ---
             if (local_ch1_pulses > 0) {
                 ch1_timeout = 0;
-                // Каждый импульс добавляет ровно 20 мс работы сети
-                valve_time_ms += (local_ch1_pulses * 20); 
+                valve_time_ms += (local_ch1_pulses * 20); // каждый импульс = 20 мс
             } else {
                 ch1_timeout += 10;
             }
@@ -110,19 +115,30 @@ void vValveDetect()
             // --- Логика Канала 2 (PB10 - Закрытие) ---
             if (local_ch2_pulses > 0) {
                 ch2_timeout = 0;
-                // Каждый импульс отнимает ровно 20 мс
-                valve_time_ms -= (local_ch2_pulses * 20); 
+                valve_time_ms -= (local_ch2_pulses * 20);
             } else {
                 ch2_timeout += 10;
             }
 
-            // Ограничиваем физические рамки хода клапана (0...100 сек)
-            if (valve_time_ms > (int32_t)VALVE_FULL_TIME_MS) valve_time_ms = VALVE_FULL_TIME_MS;
+            // Ограничиваем физические рамки хода клапана (0 ... max_time_ms)
+            if (valve_time_ms > (int32_t)max_time_ms) valve_time_ms = max_time_ms;
             if (valve_time_ms < 0) valve_time_ms = 0;
 
-            // Считаем проценты для вывода на экран или логики
-            valve_percent = ((float)valve_time_ms / VALVE_FULL_TIME_MS) * 100.0f;
+            // Считаем проценты для вывода на экран
+            valve_percent = ((float)valve_time_ms / max_time_ms) * 100.0f;
         }
+
+        // Сохраняем текущий процент в БД (is_enabled = false, т.к. только для отображения)
+        DB_Insert(VALVE_PERCENT, (DB_Value_t){
+            .is_readable = true,
+            .save_to_flash = true,
+            .raw_data = (uint8_t)valve_percent,  // целое число процентов
+            .type = 0x0,
+            .min = 0,
+            .max = 100,
+            .step = 1,
+            .is_enabled = false
+        });
     }
 }
 
