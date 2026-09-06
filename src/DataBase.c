@@ -106,11 +106,11 @@ void DB_LoadFromFlash(void)
 {
     DB_Value_t loaded_val;
 
-    for (uint8_t key = 0; key < 10; key++)
+    for (uint8_t key = 0; key < DB_MAX_ROWS; key++)
     {
         W25Q16_Read_VarSlot(key, (uint8_t*)&loaded_val, sizeof(DB_Value_t));
 
-        if (loaded_val.save_to_flash == true && loaded_val.raw_data != -1 && loaded_val.raw_data != 0)
+        if (loaded_val.save_to_flash == true && loaded_val.raw_data != -1)
         {
             loaded_val.save_to_flash = false; 
             
