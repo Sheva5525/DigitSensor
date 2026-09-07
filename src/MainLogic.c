@@ -161,9 +161,10 @@ static void ProcessDiffEqMode(DualDigitalRes* pot1, DualDigitalRes* pot2, bool r
         alpha_ret = 1.0f - expf(-DT / t_ret_delay);
         last_t_ret_delay = t_ret_delay;
 
+        // ИСПРАВЛЕНО: Инициализируем буфер чистым нулем (холодная труба до старта)
         for (uint32_t i = 0; i < MAX_DELAY_STEPS; i++)
         {
-            U_buffer[i] = 0.0f;
+            U_buffer[i] = 0.0f; 
         }
         is_initialized = true;
     }
@@ -185,18 +186,23 @@ static void ProcessDiffEqMode(DualDigitalRes* pot1, DualDigitalRes* pot2, bool r
     // 2. Запись текущего управления в буфер
     U_buffer[buffer_index] = U_in;
 
-    // 3. Расчет индексов чтения для линейной интерполяции дробного шага
+    // 3. ИСПРАВЛЕНО: Математически точный сдвиг для кольцевого буфера
     float delay_steps_float = current_theta_p / DT;
     uint32_t delay_steps = (uint32_t)delay_steps_float;
     float frac = delay_steps_float - (float)delay_steps;
 
-    int32_t idx_curr = (int32_t)buffer_index - (int32_t)delay_steps;
+    // Сдвигаем базовый индекс на -1 шаг назад в прошлое, 
+    // чтобы компенсировать текущую запись и влияние интерполяции
+    int32_t idx_curr = (int32_t)buffer_index - (int32_t)delay_steps - 1;
     if (idx_curr < 0) idx_curr += MAX_DELAY_STEPS;
 
+    // Следующий элемент находится еще дальше в прошлом
     int32_t idx_next = idx_curr - 1;
     if (idx_next < 0) idx_next += MAX_DELAY_STEPS;
 
+    // Линейная интерполяция между двумя точками прошлого
     float u_delayed = U_buffer[idx_curr] + frac * (U_buffer[idx_next] - U_buffer[idx_curr]);
+
 
     // Инкремент циклического указателя записи
     buffer_index++;
@@ -207,8 +213,7 @@ static void ProcessDiffEqMode(DualDigitalRes* pot1, DualDigitalRes* pot2, bool r
     if (pert_phase >= M_TWO_PI) pert_phase -= M_TWO_PI;
     float Y_pert = T_pert * sinf(pert_phase);
 
-    // ИСПРАВЛЕНО: Волна возмущения (Y_pert) внесена внутрь диффура согласно ТЗ первого слайда.
-    // Теперь физика процесса сглаживает возмущение, и оно корректно передается на обратку.
+    // Расчет дифференциального уравнения
     float dydt = (-Y_current + (K_p * u_delayed) + Y0 + Y_pert) / tau_p;
     Y_current = Y_current + (dydt * DT);
     
@@ -222,7 +227,7 @@ static void ProcessDiffEqMode(DualDigitalRes* pot1, DualDigitalRes* pot2, bool r
     if (Y_podacha_final < 1.0f) Y_podacha_final = 1.0f;
     if (Y_return < 1.0f)        Y_return = 1.0f;
 
-    // Конвертация и работа с аппаратными потенциометрами (оставлена без изменений)
+    // Конвертация и работа с аппаратными потенциометрами
     uint32_t target_ohm1 = Convert_Temperature_To_Ohms(Y_podacha_final, 1);
     uint32_t target_ohm2 = Convert_Temperature_To_Ohms(Y_return, 2);
     
