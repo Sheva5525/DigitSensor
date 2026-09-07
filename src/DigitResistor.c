@@ -35,10 +35,13 @@ void FindOptimalSteps( const DualDigitalRes* pot
 
     if (pot == NULL || pot->calibrate == NULL) return;
 
+    // Ограничиваем физический диапазон потенциометра
+    if (target_ohm < 50.0f)  target_ohm = 50.0f;
+    if (target_ohm > 500.0f) target_ohm = 500.0f;
+
     float min_error = FLT_MAX;
     DualDigitalRes temp_pot = *pot;
 
-    // Полный перебор всех 65k комбинаций (256 * 256)
     for (uint32_t ch0 = 0; ch0 < POT_STEPS_COUNT; ++ch0)
     {
         temp_pot.channel0_step = ch0;
@@ -47,7 +50,6 @@ void FindOptimalSteps( const DualDigitalRes* pot
         {
             temp_pot.channel1_step = ch1;
 
-            // Считаем параллельное сопротивление с защитой от деления на 0
             float current_ohm = ParallelOhm(&temp_pot);
             float error = fabsf(current_ohm - target_ohm);
 

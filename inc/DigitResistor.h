@@ -9,7 +9,6 @@
 typedef struct
 {
     uint32_t ratedRes;          // Номинальное сопротивление потенциометра
-    float max_resistance;       // Максимальное физическое сопротивление (значение calibrate[255])
     uint32_t channel0_step;     // Текущий шаг канала 0 (0 ... 255)
     uint32_t channel1_step;     // Текущий шаг канала 1 (0 ... 255)
     const float* calibrate;     // Указатель на массив калибровочных значений из 256 элементов

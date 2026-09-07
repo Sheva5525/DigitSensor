@@ -7,9 +7,30 @@ extern int16_t ucg_com_stm32_spi_cb(ucg_t *ucg, int16_t msg, uint16_t arg, uint8
 static Menu_t main_menu;
 static Menu_t settings_menu;
 
+static MenuItem_t debug_menu_info[MENU_SIZE] =
+{
+    { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
+    { .name = "Output 1", .type = ITEM_LABEL},
+    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_0 } },
+    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_1 } },
+    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_OHM } },
+    { .name = "Output 2", .type = ITEM_LABEL},
+    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_0 } },
+    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_1 } },
+    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_OHM } }
+};
+
+static Menu_t debug_menu =
+{
+    .title = "DEBUG INFO:",
+    .items = debug_menu_info,
+    .size = MENU_SIZE
+};
+
 static MenuItem_t settings_items[MENU_SIZE] =
 {
     { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
+    { .name = "Open debug info", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &debug_menu },
     { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = MAIN_SWITCH } },
     { .name = "Valve type",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = VALVE_TYPE } },
     { .name = "Valve open time",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = VALVE_OPEN_TIME } }
@@ -24,16 +45,16 @@ static Menu_t settings_menu =
 
 static MenuItem_t main_menu_items[MENU_SIZE] =
 {
-    { .name = "Open Settings", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &settings_menu },
-    { .name = "Valve %",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = VALVE_PERCENT } },
-    { .name = "Output 1", .type = ITEM_LABEL},
-    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_0 } },
-    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_1 } },
-    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_OHM } },
-    { .name = "Output 2", .type = ITEM_LABEL},
-    { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_0 } },
-    { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_1 } },
-    { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_OHM } }
+    { .name = "Open Settings",  .type = ITEM_SUBMENU,     .is_enabled = true,  .load.next_menu = &settings_menu },
+    { .name = "Valve %",        .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = VALVE_PERCENT } },
+    { .name = "Temp. output 1", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_1_TEMP } },
+    { .name = "Temp. output 2", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_2_TEMP } },
+    { .name = "TAU",            .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_TAU_P } },
+    { .name = "T_RET_DELAY",    .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_RET_DELAY } },
+    { .name = "K_p",            .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_K_P } },        // 30 -> "3.0"
+    { .name = "Y0",             .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_Y0 } },         // 250 -> "25.0"
+    { .name = "THETA_p",        .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_THETA_P } },   // 50 -> "5.0"
+    { .name = "COEF_RET",       .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_COEF_RET } },  // 8 -> "0.8"
 };
 
 static Menu_t main_menu =
@@ -175,8 +196,10 @@ void UI_ProcessAction(void)
                 UI_UpdateScroll();
                 ui.force_refresh = true;
                 break;
+            case ITEM_PARAM_FLOAT:   // === ADDED FOR FLOAT ===
             case ITEM_PARAM_INT: {
                 DB_Value_t value;
+                // Для FLOAT и INT используем db_index из int_param (совпадает по смещению)
                 if (DB_Select(item->load.int_param.db_index, &value))
                 {
                     if (!value.is_enabled) {
@@ -188,6 +211,7 @@ void UI_ProcessAction(void)
                 }
                 else
                 {
+                    // fallback, если чтение не удалось
                     current_edit_value = (DB_Value_t){ .is_readable = true, .save_to_flash = true,
                                                        .raw_data = 0, .type = 0x0, .min = 0,
                                                        .max = 0, .step = 1 };
@@ -277,9 +301,11 @@ void vGuiTask(void *pvParameters)
         
         bool param_changed[MENU_SIZE] = { false };
 
+        // Проверка изменения значений для INT и FLOAT
         for (uint8_t i = 0; i < ui.current_menu->size; i++)
         {
-            if (ui.current_menu->items[i].type == ITEM_PARAM_INT)
+            uint8_t item_type = ui.current_menu->items[i].type;
+            if (item_type == ITEM_PARAM_INT || item_type == ITEM_PARAM_FLOAT) // === ADDED FLOAT ===
             {
                 if (current_ui_mode == UI_MODE_EDIT && i == current_ui_cursor)
                 {
@@ -359,7 +385,8 @@ void vGuiTask(void *pvParameters)
                     }
 
                     bool item_enabled = item.is_enabled;
-                    if (item.type == ITEM_PARAM_INT)
+                    // Для INT и FLOAT проверяем is_enabled из БД (дополнительно)
+                    if (item.type == ITEM_PARAM_INT || item.type == ITEM_PARAM_FLOAT) // === ADDED FLOAT ===
                     {
                         DB_Value_t db_val;
                         if (DB_Select(item.load.int_param.db_index, &db_val))
@@ -392,6 +419,7 @@ void vGuiTask(void *pvParameters)
                     }
                     ucg_DrawString(&ucg, 16, row_y, 0, item.name);
 
+                    // === ОТРИСОВКА ЗНАЧЕНИЯ ===
                     if (item.type == ITEM_PARAM_INT)
                     {
                         int32_t display_value;
@@ -418,6 +446,45 @@ void vGuiTask(void *pvParameters)
                         {
                             ucg_SetColor(&ucg, 0, COLOR_WHITE);
                             ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 28, 13);
+                        }
+
+                        if (!item_enabled) ucg_SetColor(&ucg, 0, COLOR_GREY);
+                        else ucg_SetColor(&ucg, 0, COLOR_BLACK);
+                        
+                        ucg_DrawString(&ucg, ucg_GetWidth(&ucg) - 42, row_y, 0, val_str);
+                    }
+                    // === НОВЫЙ БЛОК ДЛЯ FLOAT ===
+                    else if (item.type == ITEM_PARAM_FLOAT) // === ADDED FOR FLOAT ===
+                    {
+                        int32_t display_raw;
+                        if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT)
+                        {
+                            display_raw = ui.temp_value;
+                        }
+                        else
+                        {
+                            DB_Value_t value;
+                            if (DB_Select(item.load.int_param.db_index, &value))
+                            {
+                                display_raw = value.raw_data;
+                            }
+                            else
+                            {
+                                display_raw = item.load.int_param.min;
+                            }
+                        }
+
+                        // Преобразуем целое (raw * 10) в строку с одной десятичной
+                        int int_part = display_raw / 10;
+                        int frac_part = display_raw % 10;
+                        if (frac_part < 0) frac_part = -frac_part; // на случай отрицательных
+                        sprintf(val_str, "%4d.%d", int_part, frac_part);
+
+                        // Подсветка поля редактирования (белый прямоугольник поверх значения)
+                        if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT && item_enabled)
+                        {
+                            ucg_SetColor(&ucg, 0, COLOR_WHITE);
+                            ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 32, 13); // чуть шире для "x.x"
                         }
 
                         if (!item_enabled) ucg_SetColor(&ucg, 0, COLOR_GREY);

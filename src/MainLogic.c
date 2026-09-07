@@ -82,115 +82,171 @@ static void ProcessManualMode( DualDigitalRes* pot1, DualDigitalRes* pot2
     HandleManualPot(pot2, OUT_2_OHM, OUT_2_CH_0, OUT_2_CH_1, lt2, lc2_0, lc2_1, 2);
 }
 
+uint32_t Convert_Temperature_To_Ohms(float temperature, uint8_t pot_number) {
+    float full_ohms = 1000.0f + (3.8505f * temperature);
+
+    float pot_ohms = full_ohms - 1000.0f;
+
+    if (pot_ohms < 50.0f)  pot_ohms = 50.0f;
+    if (pot_ohms > 500.0f) pot_ohms = 500.0f;
+
+    // 4. Округляем до ближайшего целого Ома
+    return (uint32_t)(pot_ohms + 0.5f);
+}
+
+#define M_TWO_PI          6.28318530f
+#define THETA_FILTER_TAU  2.0f   // Время сглаживания изменения уставки задержки, сек
+
 static void ProcessDiffEqMode(DualDigitalRes* pot1, DualDigitalRes* pot2, bool reset_state)
 {
-    // --- Статические переменные состояния системы ---
-    static float Y_current = 0.0f;                       // Текущая температура подачи (Канал 1)
-    static float Y_ret_avg = 0.0f;                       // Экспоненциальное скользящее среднее (EMA) для обратки
-    static float U_buffer[MAX_DELAY_STEPS];              // Буфер задержки истории клапана
+    static float Y_current = 0.0f;
+    static float Y_ret_avg = 0.0f;
+    static float U_buffer[MAX_DELAY_STEPS];
     static uint32_t buffer_index = 0;
     static bool is_initialized = false;
+    
+    // Состояния фильтров и фазы
+    static float pert_phase = 0.0f; 
+    static float current_theta_p = -1.0f; 
 
-    // Переменные отслеживания изменений для экономии записи в SPI (железо)
+    // Оптимизация: кэшируем коэффициенты фильтров, чтобы не вызывать expf() каждый такт
+    static float alpha_theta = 0.0f;
+    static float alpha_ret = 0.0f;
+    static float last_t_ret_delay = -1.0f;
+
     static int32_t last_applied_ohm1 = -1;
     static int32_t last_applied_ohm2 = -1;
 
-    // Сброс состояния при переключении режима из диспетчера
     if (reset_state)
     {
         is_initialized = false;
         last_applied_ohm1 = -1;
         last_applied_ohm2 = -1;
+        pert_phase = 0.0f;
+        current_theta_p = -1.0f;
+        last_t_ret_delay = -1.0f;
     }
 
-    // --- 1. ЧТЕНИЕ ДИНАМИЧЕСКИХ ПАРАМЕТРОВ ИЗ БД ---
     DB_Value_t db_tau, db_kp, db_y0, db_theta, db_valve, db_coef, db_ret_delay;
+    DB_Value_t db_pert_amp, db_pert_per;
     
-    float tau_p       = DB_Select(CFG_TAU_P,       &db_tau)       ? (float)db_tau.raw_data           : 20.0f;
-    float K_p         = DB_Select(CFG_K_P,         &db_kp)        ? (float)db_kp.raw_data / 10.0f    : 3.0f;
-    float Y0          = DB_Select(CFG_Y0,          &db_y0)        ? (float)db_y0.raw_data            : 0.0f;
-    float theta_p     = DB_Select(CFG_THETA_P,     &db_theta)     ? (float)db_theta.raw_data / 10.0f : 5.0f;
-    float U_in        = DB_Select(VALVE_PERCENT,   &db_valve)     ? (float)db_valve.raw_data         : 1.0f; 
-    
-    float coef_ret    = DB_Select(CFG_COEF_RET,    &db_coef)      ? (float)db_coef.raw_data / 100.0f : 0.8f;
-    float t_ret_delay = DB_Select(CFG_T_RET_DELAY, &db_ret_delay) ? (float)db_ret_delay.raw_data     : 10.0f;
+    float tau_p       = DB_Select(CFG_TAU_P,       &db_tau)       ? (float)db_tau.raw_data        : 20.0f;
+    float t_ret_delay = DB_Select(CFG_T_RET_DELAY, &db_ret_delay) ? (float)db_ret_delay.raw_data   : 10.0f;
+    float t_pert      = DB_Select(CFG_T_PERT_PER,  &db_pert_per)  ? (float)db_pert_per.raw_data    : 60.0f;
 
-    // Защитные ограничения входных параметров
+    float K_p         = DB_Select(CFG_K_P,         &db_kp)        ? (float)db_kp.raw_data / 10.0f  : 3.0f;
+    float Y0          = DB_Select(CFG_Y0,          &db_y0)        ? (float)db_y0.raw_data / 10.0f  : 25.0f;
+    
+    // Внимание: масштабы шкал разные (секунды уставки делятся на 10, тау_п идет как есть)
+    float target_theta= DB_Select(CFG_THETA_P,     &db_theta)     ? (float)db_theta.raw_data / 10.0f : 5.0f;
+    
+    float T_pert      = DB_Select(CFG_T_PERT_AMP,  &db_pert_amp)  ? (float)db_pert_amp.raw_data / 10.0f : 2.5f;
+    float coef_ret    = DB_Select(CFG_COEF_RET,    &db_coef)      ? (float)db_coef.raw_data / 10.0f : 0.8f;
+    float U_in        = DB_Select(VALVE_PERCENT,   &db_valve)     ? (float)db_valve.raw_data / 1000.0f : 0.01f;
+
     if (tau_p <= 0.0f) tau_p = 1.0f;
     if (t_ret_delay <= 0.0f) t_ret_delay = 1.0f;
+    if (t_pert <= 0.0f) t_pert = 1.0f;
 
-    // Первичная динамическая инициализация при первом запуске или сбросе
     if (!is_initialized)
     {
         Y_current = Y0;
         Y_ret_avg = Y0;
         buffer_index = 0;
+        pert_phase = 0.0f;
+        current_theta_p = target_theta;
         
+        // Тяжелые вычисления выполняем только при инициализации
+        alpha_theta = 1.0f - expf(-DT / THETA_FILTER_TAU);
+        alpha_ret = 1.0f - expf(-DT / t_ret_delay);
+        last_t_ret_delay = t_ret_delay;
+
         for (uint32_t i = 0; i < MAX_DELAY_STEPS; i++)
         {
-            U_buffer[i] = U_in;
+            U_buffer[i] = 0.0f;
         }
         is_initialized = true;
     }
+    else if (t_ret_delay != last_t_ret_delay)
+    {
+        // Пересчитываем альфу фильтра обратки только если уставка изменилась в БД
+        alpha_ret = 1.0f - expf(-DT / t_ret_delay);
+        last_t_ret_delay = t_ret_delay;
+    }
 
-    // --- 2. РЕАЛИЗАЦИЯ ЗАПАЗДЫВАНИЯ КЛАПАНА (КАНАЛ 1) ---
+    // Плавное изменение текущего транспортного запаздывания
+    current_theta_p = (alpha_theta * target_theta) + ((1.0f - alpha_theta) * current_theta_p);
+
+    // 1. Безопасное ограничение уставки сверху ДО расчетов индексов (Защита буфера)
+    float max_allowed_theta = (float)(MAX_DELAY_STEPS - 2) * DT;
+    if (current_theta_p > max_allowed_theta) current_theta_p = max_allowed_theta;
+    if (current_theta_p < 0.0f) current_theta_p = 0.0f;
+
+    // 2. Запись текущего управления в буфер
     U_buffer[buffer_index] = U_in;
 
-    uint32_t delay_steps = (uint32_t)(theta_p / DT);
-    if (delay_steps >= MAX_DELAY_STEPS) delay_steps = MAX_DELAY_STEPS - 1;
+    // 3. Расчет индексов чтения для линейной интерполяции дробного шага
+    float delay_steps_float = current_theta_p / DT;
+    uint32_t delay_steps = (uint32_t)delay_steps_float;
+    float frac = delay_steps_float - (float)delay_steps;
 
-    int32_t delayed_index = (int32_t)buffer_index - (int32_t)delay_steps;
-    if (delayed_index < 0) delayed_index += MAX_DELAY_STEPS;
-    
-    float u_delayed = U_buffer[delayed_index];
+    int32_t idx_curr = (int32_t)buffer_index - (int32_t)delay_steps;
+    if (idx_curr < 0) idx_curr += MAX_DELAY_STEPS;
 
+    int32_t idx_next = idx_curr - 1;
+    if (idx_next < 0) idx_next += MAX_DELAY_STEPS;
+
+    float u_delayed = U_buffer[idx_curr] + frac * (U_buffer[idx_next] - U_buffer[idx_curr]);
+
+    // Инкремент циклического указателя записи
     buffer_index++;
     if (buffer_index >= MAX_DELAY_STEPS) buffer_index = 0;
 
-    // --- 3. МЕТОД ЭЙЛЕРА ДЛЯ КАНАЛА 1 (ПОДАЧА) ---
-    float dydt = (-Y_current + (K_p * u_delayed) + Y0) / tau_p;
+    // Инкремент фазы синусоиды (без фазовых прыжков)
+    pert_phase += (M_TWO_PI * DT) / t_pert;
+    if (pert_phase >= M_TWO_PI) pert_phase -= M_TWO_PI;
+    float Y_pert = T_pert * sinf(pert_phase);
+
+    // ИСПРАВЛЕНО: Волна возмущения (Y_pert) внесена внутрь диффура согласно ТЗ первого слайда.
+    // Теперь физика процесса сглаживает возмущение, и оно корректно передается на обратку.
+    float dydt = (-Y_current + (K_p * u_delayed) + Y0 + Y_pert) / tau_p;
     Y_current = Y_current + (dydt * DT);
+    
+    float Y_podacha_final = Y_current;
 
-    // --- 4. ЭКСПОНЕНЦИАЛЬНОЕ СГЛАЖИВАНИЕ ДЛЯ КАНАЛА 2 (ОБРАТКА, ВАРИАНТ 2) ---
-    float alpha = DT / t_ret_delay;
-    if (alpha > 1.0f) alpha = 1.0f;
+    // Экспоненциальное сглаживание для Обратки (использует оптимизированную alpha_ret)
+    Y_ret_avg = (alpha_ret * Y_current) + ((1.0f - alpha_ret) * Y_ret_avg);
+    float Y_return = Y0 + coef_ret * (Y_ret_avg - Y0);
 
-    Y_ret_avg = (alpha * Y_current) + ((1.0f - alpha) * Y_ret_avg);
-    float Y_return = coef_ret * Y_ret_avg;
+    // Ограничение снизу
+    if (Y_podacha_final < 1.0f) Y_podacha_final = 1.0f;
+    if (Y_return < 1.0f)        Y_return = 1.0f;
 
-    // --- 5. ОГРАНИЧЕНИЕ И ПЕРЕВОД В ОМЫ ---
-    if (Y_current < 1.0f) Y_current = 1.0f;
-    if (Y_return < 1.0f)  Y_return = 1.0f;
+    // Конвертация и работа с аппаратными потенциометрами (оставлена без изменений)
+    uint32_t target_ohm1 = Convert_Temperature_To_Ohms(Y_podacha_final, 1);
+    uint32_t target_ohm2 = Convert_Temperature_To_Ohms(Y_return, 2);
+    
+    DB_Value_t val;
+    if (DB_Select(OUT_1_TEMP, &val)) { val.raw_data = (int32_t)(Y_podacha_final * 10.0f + 0.5f); DB_Insert(OUT_1_TEMP, val); }
+    if (DB_Select(OUT_2_TEMP, &val)) { val.raw_data = (int32_t)(Y_return * 10.0f + 0.5f);        DB_Insert(OUT_2_TEMP, val); }
 
-    uint32_t target_ohm1 = (uint32_t)(Y_current + 0.5f);
-    uint32_t target_ohm2 = (uint32_t)(Y_return + 0.5f);
-
-    // --- 6. ЗАПИСЬ В ЖЕЛЕЗО И БАЗУ ДАННЫХ ---
-    // Управление POT1 (Подача)
     if ((int32_t)target_ohm1 != last_applied_ohm1)
     {
         uint32_t ch0, ch1;
-        FindOptimalSteps(pot1, Y_current, &ch0, &ch1);
-        POT1_WRITE(0, ch0); 
-        POT1_WRITE(1, ch1);
+        FindOptimalSteps(pot1, (float)target_ohm1, &ch0, &ch1);
+        POT1_WRITE(0, ch0); POT1_WRITE(1, ch1);
         last_applied_ohm1 = target_ohm1;
-
-        DB_Value_t val;
         if (DB_Select(OUT_1_CH_0, &val)) { val.raw_data = ch0; DB_Insert(OUT_1_CH_0, val); }
         if (DB_Select(OUT_1_CH_1, &val)) { val.raw_data = ch1; DB_Insert(OUT_1_CH_1, val); }
         if (DB_Select(OUT_1_OHM,  &val)) { val.raw_data = target_ohm1; DB_Insert(OUT_1_OHM, val); }
     }
 
-    // Управление POT2 (Обратка)
     if ((int32_t)target_ohm2 != last_applied_ohm2)
     {
         uint32_t ch0, ch1;
-        FindOptimalSteps(pot2, Y_return, &ch0, &ch1);
-        POT2_WRITE(0, ch0); 
-        POT2_WRITE(1, ch1);
+        FindOptimalSteps(pot2, (float)target_ohm2, &ch0, &ch1);
+        POT2_WRITE(0, ch0); POT2_WRITE(1, ch1);
         last_applied_ohm2 = target_ohm2;
-
-        DB_Value_t val;
         if (DB_Select(OUT_2_CH_0, &val)) { val.raw_data = ch0; DB_Insert(OUT_2_CH_0, val); }
         if (DB_Select(OUT_2_CH_1, &val)) { val.raw_data = ch1; DB_Insert(OUT_2_CH_1, val); }
         if (DB_Select(OUT_2_OHM,  &val)) { val.raw_data = target_ohm2; DB_Insert(OUT_2_OHM, val); }
@@ -237,11 +293,8 @@ void ResistorControl(void)
     uint32_t cal_ticks = 0;
     uint32_t prev_mode = 0xFFFFFFFF; 
 
-    DualDigitalRes pot1 = { .ratedRes = 1170, .max_resistance = 0.0f, .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate };
-    DualDigitalRes pot2 = { .ratedRes = 1170, .max_resistance = 0.0f, .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate };
-    
-    pot1.max_resistance = calibrate[255];
-    pot2.max_resistance = calibrate[255];
+    DualDigitalRes pot1 = { .ratedRes = calibrate[255], .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate };
+    DualDigitalRes pot2 = { .ratedRes = calibrate[255], .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate };
 
     POT1_WRITE(0, 255); POT1_WRITE(1, 255);
     POT2_WRITE(0, 255); POT2_WRITE(1, 255);

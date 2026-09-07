@@ -28,6 +28,10 @@
 #define CFG_THETA_P 13
 #define CFG_COEF_RET 14
 #define CFG_T_RET_DELAY 15
+#define CFG_T_PERT_AMP 16
+#define CFG_T_PERT_PER 17
+#define OUT_1_TEMP 18
+#define OUT_2_TEMP 19
 
 #define DB_MAX_ROWS 50
 

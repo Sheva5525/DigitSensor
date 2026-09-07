@@ -8,7 +8,7 @@
 #include <stdint.h>
 
 #define MAX_MENU_DEPTH 6  // Максимальная глубина вложенности меню
-#define MENU_SIZE      28
+#define MENU_SIZE      35
 
 // Режимы работы интерфейса и энкодера
 typedef enum
@@ -24,6 +24,7 @@ typedef enum
     ITEM_BACK,            // Кнопка "< Back". Всегда первая в меню
     ITEM_SUBMENU,         // Переход во вложенную папку меню
     ITEM_PARAM_INT,       // Целочисленный параметр
+    ITEM_PARAM_FLOAT,
     ITEM_CUSTOM_PAGE,     // Переход в кастомное меню
     ITEM_LABEL
 } MenuItemType_t;

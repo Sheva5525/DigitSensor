@@ -70,9 +70,11 @@ void vValveDetect()
     DB_Value_t last_percent;
     if (DB_Select(VALVE_PERCENT, &last_percent)) 
     {
-        if (last_percent.raw_data > 100) last_percent.raw_data = 100;
+        // ИСПРАВЛЕНО: верхняя граница теперь 1000 (соответствует 100.0%)
+        if (last_percent.raw_data > 1000) last_percent.raw_data = 1000;
         
-        valve_percent = (float)last_percent.raw_data;
+        // ИСПРАВЛЕНО: переводим из масштаба БД (1:10) в реальный float процент (0.0..100.0%)
+        valve_percent = (float)last_percent.raw_data / 10.0f;
         valve_time_ms = (int32_t)((valve_percent / 100.0f) * max_time_ms);
     } 
     else 
@@ -101,8 +103,12 @@ void vValveDetect()
         if (type_valve) 
         {
             uint16_t adc_value = ADC1_Read_PB0();
-            valve_percent = ((float)adc_value / 4095.0f) * 100.0f;
-
+            
+            // ИСПРАВЛЕНО: Считаем значение сразу во внутреннем масштабе БД (0.0 .. 1000.0)
+            // Это сохранит точность ADC до десятых долей процента на экране и в симуляции
+            float db_scale_percent = ((float)adc_value / 4095.0f) * 1000.0f;
+            
+            valve_percent = db_scale_percent / 10.0f; // реальный float для расчета времени
             valve_time_ms = (int32_t)((valve_percent / 100.0f) * max_time_ms);
         }
         else 
@@ -154,16 +160,22 @@ void vValveDetect()
                 valve_time_ms = 0;
             }
 
-            valve_percent = ((float)valve_time_ms / max_time_ms) * 100.0f;
+            // ИСПРАВЛЕНО: Вычисляем реальный float процент (0.0 .. 100.0%)
+            valve_percent = ((float)valve_time_ms / (float)max_time_ms) * 100.0f;
         }
 
+        // ИСПРАВЛЕНО: Округляем до ближайшего целого под масштаб 1:10 (0 .. 1000)
+        uint32_t raw_valve_db = (uint32_t)((valve_percent * 10.0f) + 0.5f);
+        if (raw_valve_db > 1000) raw_valve_db = 1000;
+
+        // Перезаписываем параметр в БД с обновленными границами и типом данных
         DB_Insert(VALVE_PERCENT, (DB_Value_t){
             .is_readable = true,
             .save_to_flash = true,
-            .raw_data = (uint8_t)valve_percent,  // целое число процентов
+            .raw_data = raw_valve_db,  // ИСПРАВЛЕНО: теперь тут число от 0 до 1000
             .type = 0x0,
             .min = 0,
-            .max = 100,
+            .max = 1000,               // ИСПРАВЛЕНО: макс лимит в БД теперь 1000
             .step = 1,
             .is_enabled = false
         });
