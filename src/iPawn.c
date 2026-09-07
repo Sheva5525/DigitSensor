@@ -62,13 +62,13 @@ static cell AMXAPI native_SetOhm(AMX *amx, const cell *params)
         return 0;
     }
 
-    DigitalRes hard = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
-    DigitalRes soft = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+//    DigitalRes hard = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
+//    DigitalRes soft = { .ratedRes = 1170, .resolution = 255, .current_resolution = 0 };
 
     uint32_t best_step1 = 0;
     uint32_t best_step2 = 0;
 
-    FindOptimalSteps(&hard, &soft, target_ohm, &best_step1, &best_step2);
+//    FindOptimalSteps(&hard, &soft, target_ohm, &best_step1, &best_step2);
 
 //    AD8402_Write(0, best_step1);
 //    AD8402_Write(1, best_step2);

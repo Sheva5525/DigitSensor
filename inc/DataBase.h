@@ -22,6 +22,13 @@
 #define VALVE_TYPE 8
 #define VALVE_OPEN_TIME 9
 
+#define CFG_TAU_P 10
+#define CFG_K_P 11
+#define CFG_Y0 12
+#define CFG_THETA_P 13
+#define CFG_COEF_RET 14
+#define CFG_T_RET_DELAY 15
+
 #define DB_MAX_ROWS 50
 
 #define FILE_START_ADDR     0x100000UL      // 1 МБ, кратно 4 КБ

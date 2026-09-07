@@ -1,51 +1,61 @@
 #include "DigitResistor.h"
 #include <float.h>
 
-extern float calibrate[255];
- 
-float DigitalRes_GetResistance(const DigitalRes* obj)
+#include <float.h>
+#include <stddef.h>
+
+float DigitalRes_GetChannelResistance(const DualDigitalRes* pot, uint32_t step)
 {
-    return calibrate[obj->current_resolution];
+    if (pot == NULL || pot->calibrate == NULL || step >= POT_STEPS_COUNT) 
+    {
+        return 0.0f; 
+    }
+    return pot->calibrate[step];
 }
 
-float ParallelOhm(const DigitalRes* hard, const DigitalRes* soft)
+float ParallelOhm(const DualDigitalRes* pot)
 {
-    float r1 = DigitalRes_GetResistance(hard);
-    float r2 = DigitalRes_GetResistance(soft);
+    if (pot == NULL) return 0.0f;
+
+    float r1 = DigitalRes_GetChannelResistance(pot, pot->channel0_step);
+    float r2 = DigitalRes_GetChannelResistance(pot, pot->channel1_step);
     
     if ((r1 + r2) == 0.0f) return 0.0f;
     
     return (r1 * r2) / (r1 + r2);
 }
 
-void FindOptimalSteps( const DigitalRes* pot1
-                     , const DigitalRes* pot2
+void FindOptimalSteps( const DualDigitalRes* pot
                      , float target_ohm
-                     , uint32_t* best_res1
-                     , uint32_t* best_res2)
+                     , uint32_t* best_ch0_step
+                     , uint32_t* best_ch1_step)
 {
+    *best_ch0_step = 0;
+    *best_ch1_step = 0;
+
+    if (pot == NULL || pot->calibrate == NULL) return;
+
     float min_error = FLT_MAX;
-    *best_res1 = 0;
-    *best_res2 = 0;
+    DualDigitalRes temp_pot = *pot;
 
     // Полный перебор всех 65k комбинаций (256 * 256)
-    for (uint32_t res1 = 0; res1 <= pot1->resolution; ++res1)
+    for (uint32_t ch0 = 0; ch0 < POT_STEPS_COUNT; ++ch0)
     {
-        float r1 = calibrate[res1];
+        temp_pot.channel0_step = ch0;
 
-        for (uint32_t res2 = 0; res2 <= pot2->resolution; ++res2)
+        for (uint32_t ch1 = 0; ch1 < POT_STEPS_COUNT; ++ch1)
         {
-            float r2 = calibrate[res2];
+            temp_pot.channel1_step = ch1;
 
-            // Формула параллельного соединения проводников
-            float current_ohm = (r1 * r2) / (r1 + r2);
+            // Считаем параллельное сопротивление с защитой от деления на 0
+            float current_ohm = ParallelOhm(&temp_pot);
             float error = fabsf(current_ohm - target_ohm);
 
             if (error < min_error)
             {
                 min_error = error;
-                *best_res1 = res1;
-                *best_res2 = res2;
+                *best_ch0_step = ch0;
+                *best_ch1_step = ch1;
             }
         }
     }
