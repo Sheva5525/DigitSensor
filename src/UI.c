@@ -50,6 +50,7 @@ static MenuItem_t main_menu_items[MENU_SIZE] =
     { .name = "Temp. output 1", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_1_TEMP } },
     { .name = "Temp. output 2", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_2_TEMP } },
     { .name = "TAU",            .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_TAU_P } },
+    { .name = "T_PERT_PER",            .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_PERT_PER } },
     { .name = "T_RET_DELAY",    .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_RET_DELAY } },
     { .name = "K_p",            .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_K_P } },        // 30 -> "3.0"
     { .name = "Y0",             .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_Y0 } },         // 250 -> "25.0"
@@ -419,42 +420,33 @@ void vGuiTask(void *pvParameters)
                     }
                     ucg_DrawString(&ucg, 16, row_y, 0, item.name);
 
-                    // === ОТРИСОВКА ЗНАЧЕНИЯ ===
                     if (item.type == ITEM_PARAM_INT)
                     {
                         int32_t display_value;
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT)
-                        {
                             display_value = ui.temp_value;
-                        }
                         else
                         {
                             DB_Value_t value;
                             if (DB_Select(item.load.int_param.db_index, &value))
-                            {
                                 display_value = value.raw_data;
-                            }
                             else
-                            {
                                 display_value = item.load.int_param.min;
-                            }
                         }
-
                         sprintf(val_str, "%4d", display_value);
 
+                        // Подсветка поля редактирования
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT && item_enabled)
                         {
                             ucg_SetColor(&ucg, 0, COLOR_WHITE);
-                            ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 28, 13);
+                            ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 32, 13); // ширина 32 для 4 символов
                         }
 
                         if (!item_enabled) ucg_SetColor(&ucg, 0, COLOR_GREY);
                         else ucg_SetColor(&ucg, 0, COLOR_BLACK);
-                        
                         ucg_DrawString(&ucg, ucg_GetWidth(&ucg) - 42, row_y, 0, val_str);
                     }
-                    // === НОВЫЙ БЛОК ДЛЯ FLOAT ===
-                    else if (item.type == ITEM_PARAM_FLOAT) // === ADDED FOR FLOAT ===
+                    else if (item.type == ITEM_PARAM_FLOAT)
                     {
                         int32_t display_raw;
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT)
@@ -474,23 +466,24 @@ void vGuiTask(void *pvParameters)
                             }
                         }
 
-                        // Преобразуем целое (raw * 10) в строку с одной десятичной
+                        // Преобразование raw (целое * 10) в строку с одной десятичной
                         int int_part = display_raw / 10;
                         int frac_part = display_raw % 10;
-                        if (frac_part < 0) frac_part = -frac_part; // на случай отрицательных
+                        if (frac_part < 0) frac_part = -frac_part;
                         sprintf(val_str, "%4d.%d", int_part, frac_part);
 
-                        // Подсветка поля редактирования (белый прямоугольник поверх значения)
+                        // Подсветка поля редактирования (только в режиме EDIT)
                         if (i == current_ui_cursor && current_ui_mode == UI_MODE_EDIT && item_enabled)
                         {
                             ucg_SetColor(&ucg, 0, COLOR_WHITE);
-                            ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 44, row_y - 9, 32, 13); // чуть шире для "x.x"
+                            ucg_DrawBox(&ucg, ucg_GetWidth(&ucg) - 56, row_y - 9, 48, 13); // Сдвиг левее
                         }
 
+                        // Цвет текста
                         if (!item_enabled) ucg_SetColor(&ucg, 0, COLOR_GREY);
                         else ucg_SetColor(&ucg, 0, COLOR_BLACK);
                         
-                        ucg_DrawString(&ucg, ucg_GetWidth(&ucg) - 42, row_y, 0, val_str);
+                        ucg_DrawString(&ucg, ucg_GetWidth(&ucg) - 54, row_y, 0, val_str); // Сдвиг левее
                     }
                 }
             }

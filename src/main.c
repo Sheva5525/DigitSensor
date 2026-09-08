@@ -79,7 +79,7 @@ int main(void)
     DB_Insert(CFG_T_PERT_PER,  (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 60,  .type = 0x0, .min = 1, .max = 3600, .step = 1, .is_enabled = true });  // 60 сек
 
     // 1:10 fixed point
-    DB_Insert(CFG_K_P,         (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 30,  .type = 0x0, .min = 0, .max = 1000, .step = 1, .is_enabled = true });  // 30 -> 3.0
+    DB_Insert(CFG_K_P,         (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 30,  .type = 0x0, .min = 0, .max = 4000, .step = 1, .is_enabled = true });  // 30 -> 3.0
     DB_Insert(CFG_Y0,          (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 250, .type = 0x0, .min = 0, .max = 1000, .step = 1, .is_enabled = true });  // 250 -> 25.0°C (было 0, исправили на комнатную)
     DB_Insert(CFG_THETA_P,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50,  .type = 0x0, .min = 0, .max = 200,  .step = 1, .is_enabled = true });  // 50 -> 5.0 сек
     DB_Insert(CFG_COEF_RET,    (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 8,   .type = 0x0, .min = 5, .max = 15,   .step = 1, .is_enabled = true });  // 8 -> 0.8 (диапазон 0.5 .. 1.5)
