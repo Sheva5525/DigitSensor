@@ -10,30 +10,51 @@
 
 extern float calibrate[POT_STEPS_COUNT];
 
-// Вспомогательная функция для ручного режима (теперь без передачи указателя на макрос)
-static void HandleManualPot( DualDigitalRes* pot
-                           , uint8_t ohm_key, uint8_t ch0_key, uint8_t ch1_key
-                           , int32_t* last_target, int32_t* last_ch0, int32_t* last_ch1
-                           , uint8_t pot_index ) // Передаем индекс 1 или 2 вместо функции
-{
-    DB_Value_t target, ch0, ch1;
-    if (!DB_Select(ohm_key, &target)) target.raw_data = 50;
-    if (!DB_Select(ch0_key,  &ch0))    ch0.raw_data = 0;
-    if (!DB_Select(ch1_key,  &ch1))    ch1.raw_data = 0;
+uint32_t Convert_Temperature_To_Ohms(float temperature, uint8_t pot_number);
 
-    // Сценарий А: Изменилась целевая уставка в Омах -> Считаем шаги
-    if (target.raw_data != *last_target)
-    {
+// Вспомогательная функция для ручного режима (дополнена поддержкой температуры)
+static void HandleManualPot( DualDigitalRes* pot,
+                             uint8_t ohm_key, uint8_t ch0_key, uint8_t ch1_key, uint8_t temp_key,
+                             int32_t* last_target, int32_t* last_ch0, int32_t* last_ch1, int32_t* last_temp,
+                             uint8_t pot_index )
+{
+    DB_Value_t target, ch0, ch1, temp;
+    if (!DB_Select(ohm_key,   &target)) target.raw_data = 50;
+    if (!DB_Select(ch0_key,   &ch0))    ch0.raw_data = 0;
+    if (!DB_Select(ch1_key,   &ch1))    ch1.raw_data = 0;
+    if (!DB_Select(temp_key,  &temp))   temp.raw_data = 0;   // 0°C, если нет данных
+
+    // Получаем калибровочное сопротивление при 0°C (обычно ~1000 Ом)
+    float kohm1 = 1000.0f;
+    DB_Value_t calib;
+    if (pot_index == 1) {
+        if (DB_Select(OUT_1_1KOHM, &calib)) kohm1 = (float)calib.raw_data;
+    } else if (pot_index == 2) {
+        if (DB_Select(OUT_2_1KOHM, &calib)) kohm1 = (float)calib.raw_data;
+    }
+
+    // ----- 1. Обработка изменения температуры -----
+    if (temp.raw_data != *last_temp) {
+        // Температура хранится в десятых долях градуса
+        float temp_celsius = (float)temp.raw_data / 10.0f;
+        uint32_t new_ohm = Convert_Temperature_To_Ohms(temp_celsius, pot_index);
+
+        // Обновляем целевое сопротивление
+        *last_target = (int32_t)new_ohm;
+        target.raw_data = new_ohm;
+        DB_Insert(ohm_key, target);
+
+        // Вычисляем оптимальные шаги
         uint32_t step0, step1;
-        FindOptimalSteps(pot, (float)target.raw_data, &step0, &step1);
-        
+        FindOptimalSteps(pot, (float)new_ohm, &step0, &step1);
         *last_ch0 = step0;
         *last_ch1 = step1;
-        *last_target = target.raw_data;
+        ch0.raw_data = step0;
+        ch1.raw_data = step1;
+        DB_Insert(ch0_key, ch0);
+        DB_Insert(ch1_key, ch1);
 
-        DB_Value_t new0 = ch0; new0.raw_data = step0; DB_Insert(ch0_key, new0);
-        DB_Value_t new1 = ch1; new1.raw_data = step1; DB_Insert(ch1_key, new1);
-        
+        // Устанавливаем на потенциометре
         if (pot_index == 1) {
             POT1_WRITE(0, step0);
             POT1_WRITE(1, step1);
@@ -41,10 +62,48 @@ static void HandleManualPot( DualDigitalRes* pot
             POT2_WRITE(0, step0);
             POT2_WRITE(1, step1);
         }
+
+        // Сохраняем текущую температуру как последнюю
+        *last_temp = temp.raw_data;
+
+        // Пропускаем дальнейшие проверки, т.к. уже всё обновили
+        return;
     }
-    // Сценарий Б: Изменились шаги вручную -> Считаем Омы напрямую
-    else if (ch0.raw_data != *last_ch0 || ch1.raw_data != *last_ch1)
-    {
+
+    // ----- 2. Обработка изменения сопротивления (уставки в Омах) -----
+    if (target.raw_data != *last_target) {
+        // Пересчитываем температуру из сопротивления (Pt1000)
+        float new_temp = ((float)target.raw_data + 1000.0f - kohm1) / 3.8505f;
+        if (new_temp < 0.0f) new_temp = 0.0f; // защита от отрицательных температур
+        int32_t new_temp_raw = (int32_t)(new_temp * 10.0f + 0.5f);
+        *last_temp = new_temp_raw;
+        temp.raw_data = new_temp_raw;
+        DB_Insert(temp_key, temp);
+
+        // Вычисляем шаги и обновляем БД
+        uint32_t step0, step1;
+        FindOptimalSteps(pot, (float)target.raw_data, &step0, &step1);
+        *last_ch0 = step0;
+        *last_ch1 = step1;
+        ch0.raw_data = step0;
+        ch1.raw_data = step1;
+        DB_Insert(ch0_key, ch0);
+        DB_Insert(ch1_key, ch1);
+
+        if (pot_index == 1) {
+            POT1_WRITE(0, step0);
+            POT1_WRITE(1, step1);
+        } else {
+            POT2_WRITE(0, step0);
+            POT2_WRITE(1, step1);
+        }
+
+        *last_target = target.raw_data;
+        return;
+    }
+
+    // ----- 3. Обработка изменения шагов вручную -----
+    if (ch0.raw_data != *last_ch0 || ch1.raw_data != *last_ch1) {
         pot->channel0_step = ch0.raw_data;
         pot->channel1_step = ch1.raw_data;
 
@@ -53,12 +112,21 @@ static void HandleManualPot( DualDigitalRes* pot
 
         *last_ch0 = ch0.raw_data;
         *last_ch1 = ch1.raw_data;
-        *last_target = rounded_ohm;
+        *last_target = (int32_t)rounded_ohm;
 
-        DB_Value_t new_target = target; 
-        new_target.raw_data = rounded_ohm; 
-        DB_Insert(ohm_key, new_target);
+        // Обновляем сопротивление в БД
+        target.raw_data = rounded_ohm;
+        DB_Insert(ohm_key, target);
 
+        // Пересчитываем температуру из нового сопротивления
+        float new_temp = ((float)rounded_ohm + 1000.0f - kohm1) / 3.8505f;
+        if (new_temp < 0.0f) new_temp = 0.0f;
+        int32_t new_temp_raw = (int32_t)(new_temp * 10.0f + 0.5f);
+        *last_temp = new_temp_raw;
+        temp.raw_data = new_temp_raw;
+        DB_Insert(temp_key, temp);
+
+        // Устанавливаем потенциометры
         if (pot_index == 1) {
             POT1_WRITE(0, ch0.raw_data);
             POT1_WRITE(1, ch1.raw_data);
@@ -73,17 +141,34 @@ static void HandleManualPot( DualDigitalRes* pot
 // ОБРАБОТЧИКИ РЕЖИМОВ
 // ====================================================================
 
-static void ProcessManualMode( DualDigitalRes* pot1, DualDigitalRes* pot2
-                             , int32_t* lt1, int32_t* lc1_0, int32_t* lc1_1
-                             , int32_t* lt2, int32_t* lc2_0, int32_t* lc2_1 )
+static void ProcessManualMode( DualDigitalRes* pot1, DualDigitalRes* pot2,
+                               int32_t* lt1, int32_t* lc1_0, int32_t* lc1_1, int32_t* lt1_temp,
+                               int32_t* lt2, int32_t* lc2_0, int32_t* lc2_1, int32_t* lt2_temp )
 {
-    // Вместо макросов передаем просто идентификатор потенциометра: 1 или 2
-    HandleManualPot(pot1, OUT_1_OHM, OUT_1_CH_0, OUT_1_CH_1, lt1, lc1_0, lc1_1, 1);
-    HandleManualPot(pot2, OUT_2_OHM, OUT_2_CH_0, OUT_2_CH_1, lt2, lc2_0, lc2_1, 2);
+    HandleManualPot(pot1, OUT_1_OHM, OUT_1_CH_0, OUT_1_CH_1, OUT_1_TEMP,
+                    lt1, lc1_0, lc1_1, lt1_temp, 1);
+    HandleManualPot(pot2, OUT_2_OHM, OUT_2_CH_0, OUT_2_CH_1, OUT_2_TEMP,
+                    lt2, lc2_0, lc2_1, lt2_temp, 2);
 }
 
-uint32_t Convert_Temperature_To_Ohms(float temperature, uint8_t pot_number) {
-    float full_ohms = 1000.0f + (3.8505f * temperature);
+uint32_t Convert_Temperature_To_Ohms(float temperature, uint8_t pot_number)
+{
+    DB_Value_t calib_1kohm;
+    float kohm1 = 0;
+    switch (pot_number)
+    {
+        case 1:
+            kohm1 = DB_Select(OUT_1_1KOHM, &calib_1kohm) ? (float)calib_1kohm.raw_data : 1000.0f;
+            break;
+        case 2:
+            kohm1 = DB_Select(OUT_2_1KOHM, &calib_1kohm) ? (float)calib_1kohm.raw_data : 1000.0f;
+            break;
+        default:
+            kohm1 = 1000.0f;
+            break;
+    }
+
+    float full_ohms = kohm1 + (3.8505f * temperature);
 
     float pot_ohms = full_ohms - 1000.0f;
 
@@ -293,6 +378,8 @@ void ResistorControl(void)
 {
     int32_t lt1 = -1, lc1_0 = -1, lc1_1 = -1;
     int32_t lt2 = -1, lc2_0 = -1, lc2_1 = -1;
+    
+    int32_t lt1_temp = -1, lt2_temp = -1;
 
     uint32_t cal_step = 0;
     uint32_t cal_ticks = 0;
@@ -315,7 +402,9 @@ void ResistorControl(void)
         if (mode != prev_mode)
         {
             bool manual_en = (mode == 0);
-            uint8_t keys[] = { OUT_1_OHM, OUT_2_OHM, OUT_1_CH_0, OUT_1_CH_1, OUT_2_CH_0, OUT_2_CH_1 };
+            uint8_t keys[] = { OUT_1_OHM, OUT_2_OHM,
+                               OUT_1_CH_0, OUT_1_CH_1, OUT_2_CH_0, OUT_2_CH_1,
+                               OUT_1_TEMP, OUT_2_TEMP };   // добавлены ключи температуры
             for (uint8_t i = 0; i < sizeof(keys); i++)
             {
                 DB_Value_t val;
@@ -325,14 +414,19 @@ void ResistorControl(void)
                     DB_Insert(keys[i], val);
                 }
             }
+            // Сброс всех last-переменных
             lt1 = lt2 = lc1_0 = lc1_1 = lc2_0 = lc2_1 = -1;
+            lt1_temp = lt2_temp = -1;   // сброс температуры
             cal_step = 0; cal_ticks = 0;
             prev_mode = mode;
         }
 
         switch (mode)
         {
-            case 0:  ProcessManualMode(&pot1, &pot2, &lt1, &lc1_0, &lc1_1, &lt2, &lc2_0, &lc2_1); break;
+            case 0: ProcessManualMode(&pot1, &pot2,
+                      &lt1, &lc1_0, &lc1_1, &lt1_temp,
+                      &lt2, &lc2_0, &lc2_1, &lt2_temp);
+                break;
             case 1: ProcessDiffEqMode(&pot1, &pot2, mode_changed); break;
             case 2:  ProcessCalibrationMode(&cal_step, &cal_ticks); break;
             default: break;

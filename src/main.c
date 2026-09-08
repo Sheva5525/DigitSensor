@@ -72,8 +72,13 @@ int main(void)
     DB_Insert(OUT_2_OHM, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 50, .type = 0x0, .min = 50,  .max = 500, .step = 1, .is_enabled = false });
     DB_Insert(VALVE_PERCENT,   (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 10,  .type = 0x0, .min = 0, .max = 1000, .step = 1, .is_enabled = false }); // 10 -> 1.0% (макс 1000 -> 100.0%)
     DB_Insert(MAIN_SWITCH,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,   .type = 0x0, .min = 0, .max = 2,    .step = 1, .is_enabled = true });
+
+    DB_Insert(OUT_1_1KOHM,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1001,   .type = 0x0, .min = 9900, .max = 1100,    .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_1KOHM,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1002,   .type = 0x0, .min = 9900, .max = 1100,    .step = 1, .is_enabled = false });
+
     DB_Insert(VALVE_TYPE,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,   .type = 0x0, .min = 0, .max = 1,    .step = 1, .is_enabled = true });
     DB_Insert(VALVE_OPEN_TIME, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 100, .type = 0x0, .min = 1, .max = 1000, .step = 1, .is_enabled = true });
+
     DB_Insert(CFG_TAU_P,       (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 20,  .type = 0x0, .min = 1, .max = 500,  .step = 1, .is_enabled = true });  // 20 сек
     DB_Insert(CFG_T_RET_DELAY, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 10,  .type = 0x0, .min = 1, .max = 300,  .step = 1, .is_enabled = true });  // 10 сек
     DB_Insert(CFG_T_PERT_PER,  (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 60,  .type = 0x0, .min = 1, .max = 3600, .step = 1, .is_enabled = true });  // 60 сек
