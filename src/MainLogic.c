@@ -8,7 +8,8 @@
 #define MAX_DELAY_STEPS  200    // Максимальный размер кольцевого буфера задержки
 #define DT               0.1f
 
-extern float calibrate[POT_STEPS_COUNT];
+extern float calibrate_out1[POT_STEPS_COUNT];
+extern float calibrate_out2[POT_STEPS_COUNT];
 
 uint32_t Convert_Temperature_To_Ohms(float temperature, uint8_t pot_number);
 
@@ -73,7 +74,7 @@ static void HandleManualPot( DualDigitalRes* pot,
     // ----- 2. Обработка изменения сопротивления (уставки в Омах) -----
     if (target.raw_data != *last_target) {
         // Пересчитываем температуру из сопротивления (Pt1000)
-        float new_temp = ((float)target.raw_data + 1000.0f - kohm1) / 3.8505f;
+        float new_temp = ((float)target.raw_data + kohm1) / 3.8505f;
         if (new_temp < 0.0f) new_temp = 0.0f; // защита от отрицательных температур
         int32_t new_temp_raw = (int32_t)(new_temp * 10.0f + 0.5f);
         *last_temp = new_temp_raw;
@@ -119,7 +120,7 @@ static void HandleManualPot( DualDigitalRes* pot,
         DB_Insert(ohm_key, target);
 
         // Пересчитываем температуру из нового сопротивления
-        float new_temp = ((float)rounded_ohm + 1000.0f - kohm1) / 3.8505f;
+        float new_temp = ((float)rounded_ohm + kohm1) / 3.8505f;
         if (new_temp < 0.0f) new_temp = 0.0f;
         int32_t new_temp_raw = (int32_t)(new_temp * 10.0f + 0.5f);
         *last_temp = new_temp_raw;
@@ -385,8 +386,8 @@ void ResistorControl(void)
     uint32_t cal_ticks = 0;
     uint32_t prev_mode = 0xFFFFFFFF; 
 
-    DualDigitalRes pot1 = { .ratedRes = calibrate[255], .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate };
-    DualDigitalRes pot2 = { .ratedRes = calibrate[255], .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate };
+    DualDigitalRes pot1 = { .ratedRes = calibrate_out1[255], .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate_out1 };
+    DualDigitalRes pot2 = { .ratedRes = calibrate_out2[255], .channel0_step = 255, .channel1_step = 255, .calibrate = calibrate_out2 };
 
     POT1_WRITE(0, 255); POT1_WRITE(1, 255);
     POT2_WRITE(0, 255); POT2_WRITE(1, 255);
