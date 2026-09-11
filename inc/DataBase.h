@@ -36,6 +36,9 @@
 #define OUT_1_1KOHM 20
 #define OUT_2_1KOHM 21
 
+#define VALVE_SPEED 22
+#define VALVE_WALK 23
+
 #define DB_MAX_ROWS 50
 
 #define FILE_START_ADDR     0x100000UL      // 1 МБ, кратно 4 КБ

@@ -25,6 +25,37 @@ float ParallelOhm(const DualDigitalRes* pot)
     return (r1 * r2) / (r1 + r2);
 }
 
+// Быстрый бинарный поиск ближайшего шага в калибровочном массиве
+static uint32_t FindClosestStep(const float* calibrate, float target_r)
+{
+    if (target_r <= calibrate[0]) return 0;
+    if (target_r >= calibrate[POT_STEPS_COUNT - 1]) return POT_STEPS_COUNT - 1;
+
+    uint32_t low = 0;
+    uint32_t high = POT_STEPS_COUNT - 1;
+
+    // Бинарный поиск находит границы за 7-8 итераций
+    while (high - low > 1)
+    {
+        uint32_t mid = low + (high - low) / 2;
+        if (calibrate[mid] < target_r)
+        {
+            low = mid;
+        }
+        else
+        {
+            high = mid;
+        }
+    }
+
+    // Проверяем, какой из двух найденных шагов ближе к целевому сопротивлению
+    if (fabsf(calibrate[low] - target_r) < fabsf(calibrate[high] - target_r))
+    {
+        return low;
+    }
+    return high;
+}
+
 void FindOptimalSteps( const DualDigitalRes* pot
                      , float target_ohm
                      , uint32_t* best_ch0_step
@@ -42,26 +73,38 @@ void FindOptimalSteps( const DualDigitalRes* pot
     float min_error = FLT_MAX;
     DualDigitalRes temp_pot = *pot;
 
+    // Оптимизация: перебираем ТОЛЬКО первый канал ch0
     for (uint32_t ch0 = 0; ch0 < POT_STEPS_COUNT; ++ch0)
     {
+        float r1 = pot->calibrate[ch0];
+
+        // Физическое ограничение: параллельное сопротивление ВСЕГДА меньше, чем меньшее из двух.
+        // Если r1 одного канала уже меньше или равно target_ohm, 
+        // мы математически не сможем параллельным резистором поднять его до target_ohm.
+        if (r1 <= target_ohm) continue;
+
+        // Математический расчет требуемого сопротивления для второго канала
+        float required_r2 = (r1 * target_ohm) / (r1 - target_ohm);
+
+        // Мгновенно находим идеальный шаг для ch1 без перебора
+        uint32_t ch1 = FindClosestStep(pot->calibrate, required_r2);
+
+        // Проверяем итоговую ошибку получившейся пары
         temp_pot.channel0_step = ch0;
+        temp_pot.channel1_step = ch1;
+        
+        float current_ohm = ParallelOhm(&temp_pot);
+        float error = fabsf(current_ohm - target_ohm);
 
-        for (uint32_t ch1 = 0; ch1 < POT_STEPS_COUNT; ++ch1)
+        if (error < min_error)
         {
-            temp_pot.channel1_step = ch1;
-
-            float current_ohm = ParallelOhm(&temp_pot);
-            float error = fabsf(current_ohm - target_ohm);
-
-            if (error < min_error)
-            {
-                min_error = error;
-                *best_ch0_step = ch0;
-                *best_ch1_step = ch1;
-            }
+            min_error = error;
+            *best_ch0_step = ch0;
+            *best_ch1_step = ch1;
         }
     }
 }
+
 
 float calibrate_out2[256] =
 {

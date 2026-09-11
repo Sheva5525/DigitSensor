@@ -50,12 +50,13 @@ static MenuItem_t main_menu_items[MENU_SIZE] =
     { .name = "Temp. output 1", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_1_TEMP } },
     { .name = "Temp. output 2", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_2_TEMP } },
     { .name = "TAU",            .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_TAU_P } },
-    { .name = "T_PERT_PER",            .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_PERT_PER } },
+    { .name = "T_PERT_PER",     .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_PERT_PER } },
     { .name = "T_RET_DELAY",    .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_RET_DELAY } },
     { .name = "K_p",            .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_K_P } },        // 30 -> "3.0"
     { .name = "Y0",             .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_Y0 } },         // 250 -> "25.0"
     { .name = "THETA_p",        .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_THETA_P } },   // 50 -> "5.0"
     { .name = "COEF_RET",       .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_COEF_RET } },  // 8 -> "0.8"
+    { .name = "T_PERT_AMP",     .type = ITEM_PARAM_FLOAT, .is_enabled = true, .load.int_param = { .db_index = CFG_T_PERT_AMP } }
 };
 
 static Menu_t main_menu =

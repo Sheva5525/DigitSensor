@@ -2,7 +2,6 @@
 #include "ymodem.h"
 #include "DataBase.h"
 
-extern TaskHandle_t xPawnTaskHandle;
 bool g_ymodem_mode = false;
 
 void vReceive()
@@ -35,12 +34,6 @@ void vReceive()
         {
             g_receivedFile.length = 0;
         }
-    }
-
-    // Уведомление Pawn-задаче
-    if (xPawnTaskHandle != NULL)
-    {
-        xTaskNotifyGive(xPawnTaskHandle);
     }
 
     vTaskDelete(NULL);
