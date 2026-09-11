@@ -29,11 +29,13 @@ static Menu_t debug_menu =
 
 static MenuItem_t settings_items[MENU_SIZE] =
 {
-    { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
-    { .name = "Open debug info", .type = ITEM_SUBMENU,   .is_enabled = true,  .load.next_menu = &debug_menu },
-    { .name = "Main switch",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = MAIN_SWITCH } },
-    { .name = "Valve type",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = VALVE_TYPE } },
-    { .name = "Valve open time",  .type = ITEM_PARAM_INT, .is_enabled = true,  .load.int_param = { .db_index = VALVE_OPEN_TIME } }
+    { .name = "< Back",              .type = ITEM_BACK,        .is_enabled = true  },
+    { .name = "Open debug info",     .type = ITEM_SUBMENU,     .is_enabled = true,  .load.next_menu = &debug_menu },
+    { .name = "Main switch",         .type = ITEM_PARAM_INT,   .is_enabled = true,  .load.int_param = { .db_index = MAIN_SWITCH } },
+    { .name = "Valve type",          .type = ITEM_PARAM_INT,   .is_enabled = true,  .load.int_param = { .db_index = VALVE_TYPE } },
+    { .name = "Valve speed",         .type = ITEM_PARAM_FLOAT,   .is_enabled = true,  .load.int_param = { .db_index = VALVE_SPEED } },
+    { .name = "Valve walk",          .type = ITEM_PARAM_FLOAT,   .is_enabled = true,  .load.int_param = { .db_index = VALVE_WALK } },
+    { .name = "Valve open time",     .type = ITEM_PARAM_INT,   .is_enabled = false, .load.int_param = { .db_index = VALVE_OPEN_TIME } }
 };
 
 static Menu_t settings_menu =

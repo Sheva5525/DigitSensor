@@ -66,22 +66,61 @@ static uint32_t valve_time_to_raw(int32_t time_ms, uint32_t max_ms)
     return res;
 }
 
-void vValveDetect()
+/* Читает VALVE_SPEED и VALVE_WALK, вычисляет max_time_ms.
+   Через out-параметры отдаёт «сырые» значения из БД,
+   чтобы вызывающий код мог отследить их изменение. */
+static uint32_t valve_calc_max_time_ms(uint32_t *out_speed_raw,
+                                       uint32_t *out_walk_raw)
+{
+    DB_Value_t speed = {0};
+    DB_Value_t walk  = {0};
+
+    if (!DB_Select(VALVE_SPEED, &speed) || speed.raw_data == 0)
+        speed.raw_data = 200;   /* 20.0 */
+
+    if (!DB_Select(VALVE_WALK, &walk) || walk.raw_data == 0)
+        walk.raw_data = 50;     /* 5.0 */
+
+    if (out_speed_raw) *out_speed_raw = speed.raw_data;
+    if (out_walk_raw)  *out_walk_raw  = walk.raw_data;
+
+    /* ms = (speed_raw/10) * (walk_raw/10) * 1000 = speed_raw * walk_raw * 10 */
+    uint32_t ms = speed.raw_data * walk.raw_data * 10UL;
+    if (ms == 0) ms = 1000UL;
+
+    return ms;
+}
+
+void vValveDetect(void)
 {
     uint32_t ch1_timeout = 0;
     uint32_t ch2_timeout = 0;
-    DB_Value_t valve_t, max_sec_open;
+    DB_Value_t valve_t;
 
-    if (!DB_Select(VALVE_OPEN_TIME, &max_sec_open))
-        max_sec_open.raw_data = 200;
+    uint32_t cur_speed_raw = 0, cur_walk_raw = 0;
+    uint32_t max_time_ms = valve_calc_max_time_ms(&cur_speed_raw, &cur_walk_raw);
 
-    uint32_t max_time_ms = max_sec_open.raw_data * 1000UL;
+    /* начальная запись VALVE_OPEN_TIME */
+    static uint32_t last_speed_raw = 0xFFFFFFFF;
+    static uint32_t last_walk_raw  = 0xFFFFFFFF;
+    last_speed_raw = cur_speed_raw;
+    last_walk_raw  = cur_walk_raw;
+
+    DB_Insert(VALVE_OPEN_TIME, (DB_Value_t){
+        .is_readable   = true,
+        .save_to_flash = true,
+        .raw_data      = max_time_ms / 1000UL,   /* секунды */
+        .type          = 0x0,
+        .min           = 1,
+        .max           = 10000,
+        .step          = 1,
+        .is_enabled    = false
+    });
 
     DB_Value_t last_percent;
     if (DB_Select(VALVE_PERCENT, &last_percent))
     {
         if (last_percent.raw_data > 1000) last_percent.raw_data = 1000;
-
         valve_percent = (float)last_percent.raw_data / 10.0f;
         valve_time_ms = (int32_t)((valve_percent / 100.0f) * max_time_ms);
     }
@@ -100,9 +139,26 @@ void vValveDetect()
         if (!DB_Select(VALVE_TYPE, &valve_t))
             valve_t.raw_data = 0;
 
-        if (!DB_Select(VALVE_OPEN_TIME, &max_sec_open))
-            max_sec_open.raw_data = 200;
-        max_time_ms = max_sec_open.raw_data * 1000UL;
+        /* Пересчёт max_time_ms и чтение raw SPEED/WALK */
+        max_time_ms = valve_calc_max_time_ms(&cur_speed_raw, &cur_walk_raw);
+
+        /* SPEED или WALK изменились → обновляем VALVE_OPEN_TIME в БД */
+        if (cur_speed_raw != last_speed_raw || cur_walk_raw != last_walk_raw)
+        {
+            last_speed_raw = cur_speed_raw;
+            last_walk_raw  = cur_walk_raw;
+
+            DB_Insert(VALVE_OPEN_TIME, (DB_Value_t){
+                .is_readable   = true,
+                .save_to_flash = true,
+                .raw_data      = max_time_ms / 1000UL,   /* секунды */
+                .type          = 0x0,
+                .min           = 1,
+                .max           = 10000,
+                .step          = 1,
+                .is_enabled    = false
+            });
+        }
 
         bool type_valve = (valve_t.raw_data == 0);
 
@@ -149,14 +205,14 @@ void vValveDetect()
         {
             last_raw_valve_db = raw_valve_db;
             DB_Insert(VALVE_PERCENT, (DB_Value_t){
-                .is_readable = true,
+                .is_readable   = true,
                 .save_to_flash = true,
-                .raw_data = raw_valve_db,
-                .type = 0x0,
-                .min = 0,
-                .max = 1000,
-                .step = 1,
-                .is_enabled = false
+                .raw_data      = raw_valve_db,
+                .type          = 0x0,
+                .min           = 0,
+                .max           = 1000,
+                .step          = 1,
+                .is_enabled    = false
             });
         }
     }
