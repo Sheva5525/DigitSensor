@@ -86,8 +86,8 @@ int main(void)
     DB_Insert(CFG_THETA_P,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 200,  .type = 0x0, .min = 0, .max = 200,  .step = 1, .is_enabled = true });  // 50 -> 5.0 сек
     DB_Insert(CFG_COEF_RET,    (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 7,   .type = 0x0, .min = 5, .max = 15,   .step = 1, .is_enabled = true });  // 8 -> 0.8 (диапазон 0.5 .. 1.5)
     DB_Insert(CFG_T_PERT_AMP,  (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 25,  .type = 0x0, .min = 0, .max = 100,  .step = 1, .is_enabled = true });  // 25 -> 2.5°C (Ом)
-    DB_Insert(OUT_1_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0, .max = 5000,  .step = 1, .is_enabled = false });
-    DB_Insert(OUT_2_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 0, .max = 5000,  .step = 1, .is_enabled = false });
+    DB_Insert(OUT_1_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 130, .max = 5000,  .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 130, .max = 5000,  .step = 1, .is_enabled = false });
     
 
 
