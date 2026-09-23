@@ -105,4 +105,6 @@ bool DB_ReadFile(uint8_t *buffer, uint32_t max_length, uint32_t *out_length);
 
 void DB_Sync();
 
+void DB_DynamicLimits();
+
 #endif // DATABASE_H

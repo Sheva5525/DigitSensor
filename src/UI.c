@@ -10,11 +10,11 @@ static Menu_t settings_menu;
 static MenuItem_t debug_menu_info[MENU_SIZE] =
 {
     { .name = "< Back",       .type = ITEM_BACK,      .is_enabled = true },
-    { .name = "Output 1", .type = ITEM_LABEL},
+    { .name = "Supply out", .type = ITEM_LABEL},
     { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_0 } },
     { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_CH_1 } },
     { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_1_OHM } },
-    { .name = "Output 2", .type = ITEM_LABEL},
+    { .name = "Return out", .type = ITEM_LABEL},
     { .name = "Channel 0",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_0 } },
     { .name = "Channel 1",     .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_CH_1 } },
     { .name = "Target Ohm",   .type = ITEM_PARAM_INT, .is_enabled = false,  .load.int_param = { .db_index = OUT_2_OHM } }
@@ -49,8 +49,8 @@ static MenuItem_t main_menu_items[MENU_SIZE] =
 {
     { .name = "Open Settings",  .type = ITEM_SUBMENU,     .is_enabled = true,  .load.next_menu = &settings_menu },
     { .name = "Valve %",        .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = VALVE_PERCENT } },
-    { .name = "Temp. output 1", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_1_TEMP } },
-    { .name = "Temp. output 2", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_2_TEMP } },
+    { .name = "Supply temp.", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_1_TEMP } },
+    { .name = "Return temp.", .type = ITEM_PARAM_FLOAT, .is_enabled = false, .load.int_param = { .db_index = OUT_2_TEMP } },
     { .name = "TAU",            .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_TAU_P } },
     { .name = "T_PERT_PER",     .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_PERT_PER } },
     { .name = "T_RET_DELAY",    .type = ITEM_PARAM_INT,   .is_enabled = true, .load.int_param = { .db_index = CFG_T_RET_DELAY } },
