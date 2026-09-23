@@ -70,8 +70,8 @@ int main(void)
     
     DB_Insert(MAIN_SWITCH,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,   .type = 0x0, .min = 0, .max = 2,    .step = 1, .is_enabled = true });
 
-    DB_Insert(OUT_1_1KOHM,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 989,   .type = 0x0, .min = 9900, .max = 1100,    .step = 1, .is_enabled = false });
-    DB_Insert(OUT_2_1KOHM,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 986,   .type = 0x0, .min = 9900, .max = 1100,    .step = 1, .is_enabled = false }); // yellow
+    DB_Insert(OUT_1_1KOHM,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1000,   .type = 0x0, .min = 9900, .max = 1100,    .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_1KOHM,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1000,   .type = 0x0, .min = 9900, .max = 1100,    .step = 1, .is_enabled = false }); // yellow
 
     DB_Insert(VALVE_TYPE,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 1,   .type = 0x0, .min = 0, .max = 1,    .step = 1, .is_enabled = true });
     DB_Insert(VALVE_OPEN_TIME, (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 100, .type = 0x0, .min = 1, .max = 10000, .step = 1, .is_enabled = false });
@@ -86,10 +86,11 @@ int main(void)
     DB_Insert(CFG_THETA_P,     (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 200,  .type = 0x0, .min = 0, .max = 200,  .step = 1, .is_enabled = true });  // 50 -> 5.0 сек
     DB_Insert(CFG_COEF_RET,    (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 7,   .type = 0x0, .min = 5, .max = 15,   .step = 1, .is_enabled = true });  // 8 -> 0.8 (диапазон 0.5 .. 1.5)
     DB_Insert(CFG_T_PERT_AMP,  (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 25,  .type = 0x0, .min = 0, .max = 100,  .step = 1, .is_enabled = true });  // 25 -> 2.5°C (Ом)
-    DB_Insert(OUT_1_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 130, .max = 5000,  .step = 1, .is_enabled = false });
-    DB_Insert(OUT_2_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 130, .max = 5000,  .step = 1, .is_enabled = false });
-    
+    DB_Insert(OUT_1_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 100, .max = 5000,  .step = 1, .is_enabled = false });
+    DB_Insert(OUT_2_TEMP,      (DB_Value_t){ .is_readable = true, .save_to_flash = true, .raw_data = 0,  .type = 0x0, .min = 100, .max = 5000,  .step = 1, .is_enabled = false });
 
+    DB_LoadFromFlash();
+    DB_DynamicLimits();
 
     TimerHandle_t xDbTimer = xTimerCreate("DbSyncTimer", 
                                           pdMS_TO_TICKS(5000), 

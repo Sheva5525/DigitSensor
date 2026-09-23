@@ -1,5 +1,6 @@
 #include "DataBase.h"
 #include "W25Q16JVSNIQ_driver.h"
+#include <math.h>
 
 static DB_Row_t _db_storage[DB_MAX_ROWS];
 static SemaphoreHandle_t _db_mutex = NULL;
@@ -120,6 +121,58 @@ void DB_LoadFromFlash(void)
             }
         }
     }
+}
+
+float pt1000_r_to_t_float(float R)
+{
+    // Константы с суффиксом 'f' для работы в формате float
+    const float R0 = 1000.0f;
+    const float A = 3.9083e-3f;
+    const float B = -5.775e-7f;
+
+    if (R < R0) {
+        // Линейное приближение для значений ниже 0 °C (меньше 1000 Ом)
+        return (R - R0) / 3.85f; 
+    }
+
+    // Вычисление дискриминанта
+    float discriminant = (A * A) - (4.0f * B * (1.0f - (R / R0)));
+    
+    // Защита от отрицательного дискриминанта (ошибка датчика)
+    if (discriminant < 0.0f) {
+        return -999.0f; 
+    }
+
+    // Используем sqrtf для работы с float (быстрее на микроконтроллерах)
+    float t = (-A + sqrtf(discriminant)) / (2.0f * B);
+    return t * 10;
+}
+
+extern float calibrate_out1[256];
+extern float calibrate_out2[256];
+
+void DB_DynamicLimits()
+{
+    DB_Value_t res1, res2;
+    DB_Select(OUT_1_1KOHM, &res1);
+    DB_Select(OUT_2_1KOHM, &res2);
+    
+    DB_Insert(OUT_1_TEMP, (DB_Value_t){   .is_readable = true
+                                        , .save_to_flash = false
+                                        , .raw_data = 0
+                                        , .type = 0x0
+                                        , .min = (int32_t)pt1000_r_to_t_float(res1.raw_data + calibrate_out1[0]) 
+                                        , .max = 5000
+                                        , .step = 1
+                                        , .is_enabled = false });
+    DB_Insert(OUT_2_TEMP, (DB_Value_t){   .is_readable = true
+                                        , .save_to_flash = false
+                                        , .raw_data = (int32_t)pt1000_r_to_t_float(res2.raw_data + calibrate_out2[0])
+                                        , .type = 0x0
+                                        , .min = 100
+                                        , .max = 5000
+                                        , .step = 1
+                                        , .is_enabled = false });
 }
 
 bool DB_StoreFile(const uint8_t *data, uint32_t length)
